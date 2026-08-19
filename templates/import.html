@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Ethan's Tracker</h1>
+        {% include "_nav.html" %}
+
+        <h2>Import History from CSV</h2>
+
+        {% if message %}
+        <div class="weight-callout" style="background:#eafbea; border-color:#bdf0bd; color:#256b25;">{{ message }}</div>
+        {% endif %}
+        {% if error %}
+        <div class="weight-callout" style="background:#fdecec; border-color:#f5b8b8; color:#a33030; text-align:left;">
+            {{ error }}
+            {% if row_errors %}
+            <ul style="margin:8px 0 0; padding-left:20px; font-weight:500;">
+                {% for e in row_errors[:20] %}
+                <li>{{ e }}</li>
+                {% endfor %}
+                {% if row_errors|length > 20 %}
+                <li>...and {{ row_errors|length - 20 }} more</li>
+                {% endif %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="log-form" style="margin-bottom:20px;">
+            <p style="font-size:0.85rem; color:#555; margin:0 0 10px;">
+                Upload a CSV with columns <strong>Date, Time, Type, Value</strong> (same format as the
+                "Export all history" download). Date as YYYY-MM-DD, Time as HH:MM, Type matching one of:
+                {% for key, meta in event_types.items() %}{{ meta.label }}{% if not loop.last %}, {% endif %}{% endfor %}.
+            </p>
+            <form method="POST" enctype="multipart/form-data">
+                <label for="csv_file">CSV File</label>
+                <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
+                <button type="submit">Upload and Import</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

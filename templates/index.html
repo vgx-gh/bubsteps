@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Ethan's Tracker</h1>
+        {% include "_nav.html" with context %}
+
+        {% if last_fed %}
+        <div class="last-fed-banner status-{{ last_fed.status }}">
+            Last fed ({{ last_fed.type_label }}) at {{ last_fed.time }} — {{ last_fed.ago }}
+        </div>
+        {% endif %}
+
+        <h2>Quick Log</h2>
+        <div class="quick-log-grid">
+            {% for preset in quick_presets %}
+            <form method="POST" action="{{ url_for('quick_log') }}">
+                <input type="hidden" name="type" value="{{ preset.type }}">
+                <input type="hidden" name="value" value="{{ preset.value }}">
+                <button type="submit" class="quick-btn">{{ preset.label }}</button>
+            </form>
+            {% endfor %}
+        </div>
+
+        <h2>Custom Entry</h2>
+        <form method="POST" class="log-form">
+            <label for="entry_date">Date</label>
+            <input type="date" id="entry_date" name="entry_date" value="{{ today }}" required>
+
+            <label for="entry_time">Time</label>
+            <input type="time" id="entry_time" name="entry_time" value="{{ now }}" required>
+
+            <label for="type">What are you logging?</label>
+            <select id="type" name="type" onchange="updateValueField()" required>
+                {% for key, meta in event_types.items() %}
+                <option value="{{ key }}">{{ meta.label }}</option>
+                {% endfor %}
+            </select>
+
+            <div id="value-wrapper">
+                <label for="value" id="value-label">Amount (ml)</label>
+                <input type="number" step="any" id="value" name="value" placeholder="e.g. 80">
+            </div>
+
+            <button type="submit">Save Entry</button>
+        </form>
+    </div>
+
+    <script>
+        const units = {
+            {% for key, meta in event_types.items() %}
+            "{{ key }}": {{ meta.unit|tojson }},
+            {% endfor %}
+        };
+
+        function updateValueField() {
+            const type = document.getElementById('type').value;
+            const unit = units[type];
+            const wrapper = document.getElementById('value-wrapper');
+            const label = document.getElementById('value-label');
+            const input = document.getElementById('value');
+
+            if (unit === null) {
+                wrapper.style.display = 'none';
+                input.removeAttribute('required');
+            } else {
+                wrapper.style.display = 'block';
+                label.textContent = unit === 'minutes' ? 'Duration (minutes)' : (unit === 'kg' ? 'Weight (kg)' : 'Amount (ml)');
+                input.placeholder = unit === 'minutes' ? 'e.g. 20' : (unit === 'kg' ? 'e.g. 4.2' : 'e.g. 80');
+                input.setAttribute('required', 'required');
+            }
+        }
+
+        updateValueField();
+    </script>
+</body>
+</html>

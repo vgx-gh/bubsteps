@@ -1,0 +1,14 @@
+[Unit]
+Description=Baby Tracker Flask App
+After=network.target
+
+[Service]
+# NOTE: adjust User and WorkingDirectory below if your username or folder differs
+User=vgpi
+WorkingDirectory=/home/vgpi/baby-tracker
+ExecStart=/usr/bin/python3 /home/vgpi/baby-tracker/app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

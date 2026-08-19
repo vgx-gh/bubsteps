@@ -1,0 +1,14 @@
+<nav class="topnav">
+    <a href="{{ url_for('home') }}" {% if active=='home' %}class="active"{% endif %}>➕ Log</a>
+    <a href="{{ url_for('day_view') }}" {% if active=='day' %}class="active"{% endif %}>📅 Daily</a>
+    <a href="{{ url_for('week_view') }}" {% if active=='week' %}class="active"{% endif %}>🗓️ Weekly</a>
+    <a href="{{ url_for('journal_view') }}" {% if active=='journal' %}class="active"{% endif %}>📓 Journal</a>
+    <a href="{{ url_for('weight_view') }}" {% if active=='weight' %}class="active"{% endif %}>⚖️ Weight</a>
+    <a href="{{ url_for('growth_view') }}" {% if active=='growth' %}class="active"{% endif %}>🌱 Growth</a>
+</nav>
+<div class="subnav">
+    <a href="{{ url_for('report_view') }}">🖨️ Printable Report</a>
+    <a href="{{ url_for('journal_report') }}">📓 Print Journal</a>
+    <a href="{{ url_for('import_csv') }}">⬆️ Import CSV</a>
+    <a href="{{ url_for('journal_import') }}">⬆️ Import Journal</a>
+</div>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weight - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        table.weight-history { width:100%; table-layout:fixed; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+        table.weight-history th, table.weight-history td { padding: 6px 8px; border-bottom:1px solid #eee; text-align:left; font-size: 0.8rem; white-space: nowrap; }
+        table.weight-history th { background:#f0f2f5; font-size:0.7rem; text-transform:uppercase; color:#777; }
+        table.weight-history th:nth-child(1), table.weight-history td:nth-child(1) { width: 42%; }
+        table.weight-history th:nth-child(2), table.weight-history td:nth-child(2) { width: 28%; }
+        table.weight-history th:nth-child(3), table.weight-history td:nth-child(3) { width: 30%; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Ethan's Tracker</h1>
+        {% include "_nav.html" %}
+
+        <h2>Weight</h2>
+
+        {% if latest %}
+        <div class="weight-callout">
+            Latest weight: <span class="value">{{ latest.value }} kg</span>
+            <div style="color:#888; font-size:0.85rem; margin-top:4px;">
+                on {{ latest.date }}
+                {% if change %} · change since last: {{ change }}{% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if chart_svg %}
+        <div class="chart-card">
+            {{ chart_svg | safe }}
+        </div>
+        {% else %}
+        <p class="empty">No weight entries logged yet. Add one from the Log Entry page.</p>
+        {% endif %}
+
+        {% if points %}
+        <h2>History</h2>
+        <table class="weight-history">
+            <thead>
+                <tr><th>Date</th><th>Time</th><th>Weight</th></tr>
+            </thead>
+            <tbody>
+                {% for p in points %}
+                <tr>
+                    <td>{{ p.date }}</td>
+                    <td>{{ p.time }}</td>
+                    <td>{{ p.value }} kg</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</body>
+</html>

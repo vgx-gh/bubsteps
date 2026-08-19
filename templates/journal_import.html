@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Journal - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Ethan's Tracker</h1>
+        {% include "_nav.html" %}
+
+        <h2>Import Journal from CSV</h2>
+
+        {% if message %}
+        <div class="weight-callout" style="background:#eafbea; border-color:#bdf0bd; color:#256b25;">{{ message }}</div>
+        {% endif %}
+        {% if error %}
+        <div class="weight-callout" style="background:#fdecec; border-color:#f5b8b8; color:#a33030; text-align:left;">
+            {{ error }}
+            {% if row_errors %}
+            <ul style="margin:8px 0 0; padding-left:20px; font-weight:500;">
+                {% for e in row_errors[:20] %}
+                <li>{{ e }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="log-form" style="margin-bottom:20px;">
+            <p style="font-size:0.85rem; color:#555; margin:0 0 10px;">
+                Upload a CSV with columns <strong>Date, Type, Notes</strong>. Date as YYYY-MM-DD or DD/MM/YYYY,
+                Type as "Appointment" or "Notes" (or leave blank).
+            </p>
+            <form method="POST" enctype="multipart/form-data">
+                <label for="csv_file">CSV File</label>
+                <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
+                <button type="submit">Upload and Import</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

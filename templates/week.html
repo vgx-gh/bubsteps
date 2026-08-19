@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly View - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .week-day-card { background:#fff; border-radius:10px; padding:12px 14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+        .week-day-card h3 { margin: 0 0 8px 0; font-size: 0.95rem; display:flex; justify-content:space-between; align-items:center; }
+        .week-day-card h3 a { font-size: 0.72rem; color:#4a90d9; font-weight:600; text-decoration:none; }
+        .week-mini-totals { width:100%; border-collapse:collapse; }
+        .week-mini-totals td { padding: 3px 6px; font-size: 0.78rem; color:#444; border-bottom: 1px solid #f2f2f2; }
+        .week-mini-totals td:first-child { color:#777; width:55%; }
+        .week-mini-totals td:last-child { text-align:right; font-weight:600; }
+        .week-badge { display:inline-block; background:#eaf4ff; color:#2c5f8a; font-weight:700; font-size:0.8rem; padding:6px 14px; border-radius:20px; margin-bottom:12px; }
+        .day-scroll a.disabled { color:#ccc; pointer-events:none; font-weight:700; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Ethan's Tracker</h1>
+        {% include "_nav.html" with context %}
+
+        <form method="GET" class="date-picker">
+            <label for="entry_date">Any date in the week you want to view</label>
+            <input type="date" id="entry_date" name="entry_date" value="{{ anchor }}"
+                   onchange="this.form.submit()">
+        </form>
+
+        <div class="day-scroll">
+            {% if is_birth_week %}
+                <span class="disabled">◀ Prev Week</span>
+            {% else %}
+                <a href="{{ url_for('week_view', entry_date=prev_week_anchor) }}">◀ Prev Week</a>
+            {% endif %}
+            {% if is_current_week %}
+                <span class="today-label">This Week</span>
+            {% else %}
+                <a href="{{ url_for('week_view') }}">This Week</a>
+            {% endif %}
+            <a href="{{ url_for('week_view', entry_date=next_week_anchor) }}">Next Week ▶</a>
+        </div>
+
+        {% if last_fed %}
+        <div class="last-fed-banner status-{{ last_fed.status }}">
+            Last fed ({{ last_fed.type_label }}) at {{ last_fed.time }} — {{ last_fed.ago }}
+        </div>
+        {% endif %}
+
+        <div class="week-badge">Week {{ week_number }} of Ethan's life</div>
+        <h2>Week of {{ week_start }} to {{ week_end }}</h2>
+
+        <h2>Day by Day</h2>
+        {% for d in days %}
+        <div class="week-day-card">
+            <h3>{{ d.label }} <a href="{{ url_for('day_view', entry_date=d.date) }}">View day →</a></h3>
+            <table class="week-mini-totals">
+                <tr><td>Total Breast Time</td><td>{{ d.totals.breast_time_display }}</td></tr>
+                <tr><td>Total Pumps</td><td>{{ d.totals.pump_count }} times ({{ d.totals.pump_ml|int }} ml)</td></tr>
+                <tr><td>Total Express Milk</td><td>{{ d.totals.express_ml|int }} ml</td></tr>
+                <tr><td>Total Formula</td><td>{{ d.totals.formula_ml|int }} ml</td></tr>
+                <tr><td>Overall Milk Consumed</td><td>{{ d.totals.overall_milk_ml|int }} ml</td></tr>
+                <tr><td>Dirty Nappies (Poo)</td><td>{{ d.totals.poo_count }}</td></tr>
+                <tr><td>Wet Nappies (Pee)</td><td>{{ d.totals.pee_count }}</td></tr>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Entry - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Ethan's Tracker</h1>
+        {% include "_nav.html" with context %}
+
+        <h2>Edit Entry</h2>
+        <form method="POST" class="log-form">
+            <label for="entry_date">Date</label>
+            <input type="date" id="entry_date" name="entry_date" value="{{ row.entry_date }}" required>
+
+            <label for="entry_time">Time</label>
+            <input type="time" id="entry_time" name="entry_time" value="{{ row.entry_time }}" required>
+
+            <label for="type">Type</label>
+            <select id="type" name="type" required>
+                {% for key, meta in event_types.items() %}
+                <option value="{{ key }}" {% if key == row.type %}selected{% endif %}>{{ meta.label }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="value">Value</label>
+            <input type="number" step="any" id="value" name="value" value="{{ row.value }}">
+
+            <button type="submit">Save Changes</button>
+        </form>
+        <a class="export-link" href="{{ url_for('day_view', entry_date=row.entry_date) }}">← Cancel and go back</a>
+    </div>
+</body>
+</html>

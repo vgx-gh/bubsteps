@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journal Report - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #fff; }
+            .container { max-width: 100%; }
+            .report-week { page-break-after: always; }
+            .report-week:last-child { page-break-after: auto; }
+        }
+        .report-week { margin-bottom: 28px; }
+        .report-week-title { font-size: 1.1rem; font-weight: 800; color: #2c5f8a; margin-bottom: 2px; }
+        .report-week-dates { color: #888; font-size: 0.8rem; margin-bottom: 12px; }
+        .report-day { background:#fff; border-radius:10px; padding:12px 14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+        .report-day-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+        .report-day-label { font-weight:700; font-size:0.9rem; }
+        .report-day-number { font-size:0.72rem; color:#4a90d9; font-weight:700; background:#eaf4ff; padding:2px 8px; border-radius:10px; }
+        .report-journal-entry { border-top:1px solid #f0f0f0; padding:6px 0; }
+        .report-journal-entry:first-of-type { border-top:none; padding-top:0; }
+        .report-journal-event { font-weight:700; font-size:0.82rem; color:#2c5f8a; }
+        .report-journal-notes { font-size:0.78rem; color:#555; margin-top:2px; white-space:pre-wrap; }
+        .print-btn { display:block; width:100%; padding:12px; margin-bottom:16px; background:#4a90d9; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:1rem; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="no-print">
+            <h1>👶 Baby Ethan's Tracker</h1>
+            {% include "_nav.html" %}
+            <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+            <a class="export-link" href="{{ url_for('journal_export_csv') }}">⬇ Export all journal data (CSV)</a>
+        </div>
+
+        <h1 style="text-align:left;">Baby Ethan — Journal</h1>
+        <p style="color:#888; font-size:0.85rem;">Generated {{ generated_at }} &middot; latest week first, one week per printed page</p>
+
+        {% for w in week_summaries %}
+        <div class="report-week">
+            <div class="report-week-title">Week {{ w.week_number }} of Ethan's life</div>
+            <div class="report-week-dates">{{ w.week_start }} to {{ w.week_end }}</div>
+
+            {% for d in w.days %}
+            <div class="report-day">
+                <div class="report-day-header">
+                    <span class="report-day-label">{{ d.date }}</span>
+                    <span class="report-day-number">Day {{ d.day_number }}</span>
+                </div>
+                {% for e in d.entries %}
+                <div class="report-journal-entry">
+                    {% if e.event %}<div class="report-journal-event">{{ e.event }}</div>{% endif %}
+                    {% if e.notes %}<div class="report-journal-notes">{{ e.notes }}</div>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty">No journal entries logged yet.</p>
+        {% endfor %}
+    </div>
+</body>
+</html>

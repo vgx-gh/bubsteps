@@ -1,0 +1,11 @@
+# Never track the live database or backups - this is real data, not code
+tracker.db
+backups/
+
+# Python runtime junk
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store
+Thumbs.db

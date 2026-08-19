@@ -1,0 +1,425 @@
+* { box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f4f6f8;
+    margin: 0;
+    padding: 0;
+    color: #222;
+}
+
+.container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+}
+
+h1 {
+    font-size: 1.5rem;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+nav a {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    background: #fff;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #555;
+    font-weight: 600;
+    border: 1px solid #ddd;
+}
+
+nav a.active {
+    background: #4a90d9;
+    color: #fff;
+    border-color: #4a90d9;
+}
+
+.log-form, .date-picker {
+    background: #fff;
+    padding: 16px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #555;
+    margin-top: 8px;
+}
+
+input, select {
+    padding: 12px;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    width: 100%;
+}
+
+button {
+    margin-top: 16px;
+    padding: 14px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    background: #4a90d9;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+button:active { background: #3a7cc0; }
+
+h2 {
+    font-size: 1.1rem;
+    margin-top: 28px;
+    margin-bottom: 8px;
+}
+
+table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+table.entries th:nth-child(1), table.entries td:nth-child(1) { width: 18%; }
+table.entries th:nth-child(2), table.entries td:nth-child(2) { width: 32%; }
+table.entries th:nth-child(3), table.entries td:nth-child(3) { width: 25%; }
+table.entries th:nth-child(4), table.entries td:nth-child(4) { width: 25%; }
+
+table.week th:nth-child(1), table.week td:nth-child(1) { width: 22%; }
+table.week th:nth-child(2), table.week td:nth-child(2) { width: 14%; }
+table.week th:nth-child(3), table.week td:nth-child(3) { width: 13%; }
+table.week th:nth-child(4), table.week td:nth-child(4) { width: 15%; }
+table.week th:nth-child(5), table.week td:nth-child(5) { width: 15%; }
+table.week th:nth-child(6), table.week td:nth-child(6) { width: 13%; }
+table.week th:nth-child(7), table.week td:nth-child(7) { width: 8%; }
+
+table.totals td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+}
+
+table.totals td:first-child {
+    color: #555;
+}
+
+table.totals td:last-child {
+    text-align: right;
+    font-weight: 700;
+}
+
+table.entries th, table.entries td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+}
+
+table.entries th {
+    background: #f0f2f5;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: #777;
+}
+
+.empty {
+    color: #888;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
+.quick-log-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.quick-btn {
+    width: 100%;
+    margin-top: 0;
+    padding: 16px 8px;
+    font-size: 0.95rem;
+    background: #6fb5e0;
+}
+
+.quick-btn:active { background: #4a90d9; }
+
+.export-link {
+    display: block;
+    text-align: center;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: #fff;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #4a90d9;
+    font-weight: 600;
+    border: 1px solid #ddd;
+}
+
+.row-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.row-actions a {
+    color: #4a90d9;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.link-btn {
+    background: none;
+    border: none;
+    color: #d9534f;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+/* Top nav */
+.topnav {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.topnav a {
+    text-align: center;
+    padding: 10px 6px;
+    background: #fff;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #555;
+    font-weight: 600;
+    border: 1px solid #ddd;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.topnav a.active {
+    background: #4a90d9;
+    color: #fff;
+    border-color: #4a90d9;
+}
+
+table.week {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
+
+table.week th, table.week td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+    font-size: 0.9rem;
+}
+
+table.week th {
+    background: #f0f2f5;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #777;
+}
+
+table.week a {
+    color: #4a90d9;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.weight-callout {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    text-align: center;
+}
+
+.weight-callout .value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #4a90d9;
+}
+
+.last-fed-banner {
+    background: #eaf4ff;
+    border: 1px solid #bcdcf7;
+    color: #2c5f8a;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.last-fed-banner.status-warning {
+    background: #fff8e1;
+    border-color: #f5d67f;
+    color: #8a6d1a;
+}
+
+.last-fed-banner.status-danger {
+    background: #fdecec;
+    border-color: #f5b8b8;
+    color: #a33030;
+}
+
+.day-scroll {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+}
+
+.day-scroll a {
+    color: #4a90d9;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.today-label {
+    color: #888;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+h2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+}
+
+.filter-wrapper {
+    position: relative;
+}
+
+.filter-toggle {
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    color: #555;
+}
+
+.filter-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 32px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    z-index: 10;
+    min-width: 160px;
+}
+
+.filter-menu.open {
+    display: block;
+}
+
+.filter-menu label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #333;
+    padding: 4px 0;
+    margin-top: 0;
+    text-transform: none;
+}
+
+.filter-menu-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.filter-action-btn {
+    flex: 1;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #f0f2f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    color: #4a90d9;
+}
+
+.filter-label-text {
+    cursor: pointer;
+}
+
+.filter-label-text:hover {
+    text-decoration: underline;
+}
+
+.subnav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.subnav a {
+    flex: 1;
+    text-align: center;
+    padding: 6px 6px;
+    background: transparent;
+    text-decoration: none;
+    color: #4a90d9;
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.chart-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}

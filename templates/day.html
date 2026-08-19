@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily View - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Ethan's Tracker</h1>
+        {% include "_nav.html" %}
+
+        {% if last_fed %}
+        <div class="last-fed-banner status-{{ last_fed.status }}">
+            Last fed ({{ last_fed.type_label }}) at {{ last_fed.time }} — {{ last_fed.ago }}
+        </div>
+        {% endif %}
+
+        <form method="GET" class="date-picker">
+            <label for="entry_date">Date</label>
+            <input type="date" id="entry_date" name="entry_date" value="{{ entry_date }}"
+                   onchange="this.form.submit()">
+        </form>
+
+        <div class="day-scroll">
+            <a href="{{ url_for('day_view', entry_date=prev_date) }}">◀ Prev</a>
+            {% if is_today %}
+                <span class="today-label">Today</span>
+            {% else %}
+                <a href="{{ url_for('day_view') }}">Today</a>
+            {% endif %}
+            <a href="{{ url_for('day_view', entry_date=next_date) }}">Next ▶</a>
+        </div>
+
+        <h2>Totals for {{ entry_date }}</h2>
+        <table class="totals">
+            <tr><td>Total Breast Time</td><td>{{ totals.breast_time_display }}</td></tr>
+            <tr><td>Total Pumps</td><td>{{ totals.pump_count }} times ({{ totals.pump_ml|int }} ml)</td></tr>
+            <tr><td>Total Express Milk</td><td>{{ totals.express_ml|int }} ml</td></tr>
+            <tr><td>Total Formula</td><td>{{ totals.formula_ml|int }} ml</td></tr>
+            <tr><td>Overall Milk Consumed</td><td>{{ totals.overall_milk_ml|int }} ml</td></tr>
+            <tr><td>Dirty Nappies (Poo)</td><td>{{ totals.poo_count }}</td></tr>
+            <tr><td>Wet Nappies (Pee)</td><td>{{ totals.pee_count }}</td></tr>
+        </table>
+
+        <h2>
+            Entries
+            {% if rows %}
+            <span class="filter-wrapper">
+                <button type="button" class="filter-toggle" onclick="document.getElementById('type-filter-menu').classList.toggle('open')">Filter Type ▾</button>
+                <div id="type-filter-menu" class="filter-menu">
+                    <div class="filter-menu-actions">
+                        <button type="button" class="filter-action-btn" onclick="setAllFilters(true)">All</button>
+                        <button type="button" class="filter-action-btn" onclick="setAllFilters(false)">None</button>
+                    </div>
+                    {% for key, meta in event_types.items() %}
+                    <label>
+                        <input type="checkbox" class="type-filter-cb" value="{{ key }}" checked onchange="applyTypeFilter()">
+                        <span class="filter-label-text" onclick="isolateFilter(event, '{{ key }}')">{{ meta.label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </span>
+            {% endif %}
+        </h2>
+        {% if rows %}
+        <table class="entries">
+            <thead>
+                <tr><th>Time</th><th>Type</th><th>Value</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                <tr data-type="{{ r.type }}">
+                    <td>{{ r.entry_time }}</td>
+                    <td>{{ event_types[r.type].label }}</td>
+                    <td>
+                        {% if event_types[r.type].unit == None %}
+                            —
+                        {% elif event_types[r.type].unit == 'minutes' %}
+                            {{ r.value|int }} min
+                        {% elif event_types[r.type].unit == 'kg' %}
+                            {{ r.value }} kg
+                        {% else %}
+                            {{ r.value|int }} ml
+                        {% endif %}
+                    </td>
+                    <td class="row-actions">
+                        <a href="{{ url_for('edit_entry', entry_id=r.id) }}">Edit</a>
+                        <form method="POST" action="{{ url_for('delete_entry', entry_id=r.id) }}"
+                              onsubmit="return confirm('Delete this entry?');">
+                            <input type="hidden" name="entry_date" value="{{ entry_date }}">
+                            <button type="submit" class="link-btn">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty">No entries logged for this date yet.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        function applyTypeFilter() {
+            const checked = Array.from(document.querySelectorAll('.type-filter-cb:checked')).map(cb => cb.value);
+            document.querySelectorAll('table.entries tbody tr').forEach(row => {
+                row.style.display = checked.includes(row.dataset.type) ? '' : 'none';
+            });
+        }
+
+        function setAllFilters(checked) {
+            document.querySelectorAll('.type-filter-cb').forEach(cb => cb.checked = checked);
+            applyTypeFilter();
+        }
+
+        function isolateFilter(evt, key) {
+            // Clicking a type's label shows only that type (click again to restore all)
+            evt.stopPropagation();
+            const boxes = document.querySelectorAll('.type-filter-cb');
+            const onlyThisChecked = Array.from(boxes).every(cb => cb.value === key ? cb.checked : !cb.checked);
+            if (onlyThisChecked) {
+                setAllFilters(true);
+            } else {
+                boxes.forEach(cb => cb.checked = (cb.value === key));
+                applyTypeFilter();
+            }
+        }
+
+        // Close the filter menu when clicking outside it
+        document.addEventListener('click', function(e) {
+            const wrapper = document.querySelector('.filter-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                document.getElementById('type-filter-menu').classList.remove('open');
+            }
+        });
+    </script>
+</body>
+</html>

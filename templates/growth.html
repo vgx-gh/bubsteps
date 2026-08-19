@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Growth - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .growth-hero {
+            background: linear-gradient(135deg, #eaf4ff 0%, #dcecfb 100%);
+            border-radius: 16px;
+            padding: 28px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .growth-hero .age-big { font-size: 2.1rem; font-weight: 800; color: #2c5f8a; margin-bottom: 4px; }
+        .growth-hero .age-sub { color: #5a89ac; font-size: 0.9rem; font-weight: 600; }
+        .growth-hero .stage-badge { display: inline-block; margin-top: 12px; background: #fff; color: #4a90d9; font-weight: 700; font-size: 0.8rem; padding: 6px 14px; border-radius: 20px; }
+        .slider-bar { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 10px; padding: 10px 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .slider-bar button { background: #4a90d9; color: #fff; border: none; border-radius: 8px; padding: 10px 14px; font-weight: 700; font-size: 0.95rem; cursor: pointer; }
+        .slider-bar button:disabled { background: #ccc; cursor: not-allowed; }
+        .slider-bar .slider-label { flex: 1; text-align: center; font-weight: 700; color: #333; font-size: 0.9rem; }
+        .slider-reset { text-align: center; margin-bottom: 20px; }
+        .slider-reset a { color: #4a90d9; font-size: 0.8rem; font-weight: 600; text-decoration: none; }
+        .viewing-note { text-align: center; font-size: 0.75rem; color: #a55; margin-bottom: 12px; font-weight: 600; }
+        .guidance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        @media (max-width: 480px) { .guidance-grid { grid-template-columns: 1fr; } }
+        .guidance-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-top: 3px solid #4a90d9; }
+        .guidance-card .card-icon { font-size: 1.3rem; margin-bottom: 6px; }
+        .guidance-card .card-title { font-weight: 700; font-size: 0.85rem; color: #2c5f8a; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; }
+        .guidance-card .card-body { font-size: 0.9rem; color: #444; line-height: 1.4; }
+        .growth-disclaimer { font-size: 0.75rem; color: #999; text-align: center; margin-top: 24px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Ethan's Tracker</h1>
+        {% include "_nav.html" %}
+
+        <div class="growth-hero">
+            <div class="age-big">{{ age_weeks }} weeks, {{ age_extra_days }} days old</div>
+            <div class="age-sub">{{ age_days }} days total &middot; ~{{ age_months }} months</div>
+            <div class="stage-badge" id="stage-badge">{{ guidance.label }} stage</div>
+        </div>
+
+        <div class="slider-bar">
+            <button type="button" id="prev-btn" onclick="moveSlider(-1)">◀ Prev</button>
+            <div class="slider-label" id="slider-label">{{ guidance.label }}</div>
+            <button type="button" id="next-btn" onclick="moveSlider(1)">Next ▶</button>
+        </div>
+        <div id="viewing-note" class="viewing-note" style="display:none;">Previewing a different stage — not Ethan's current age</div>
+        <div class="slider-reset"><a href="javascript:void(0)" onclick="resetSlider()">↺ Reset to Ethan's current age</a></div>
+
+        <div class="guidance-grid">
+            <div class="guidance-card">
+                <div class="card-icon">👖</div>
+                <div class="card-title">Nappy Size</div>
+                <div class="card-body" id="card-nappy">{{ guidance.nappy_size }}</div>
+            </div>
+            <div class="guidance-card">
+                <div class="card-icon">🍼</div>
+                <div class="card-title">Feed Volume</div>
+                <div class="card-body" id="card-feed">{{ guidance.feed_volume }}</div>
+            </div>
+            <div class="guidance-card">
+                <div class="card-icon">😴</div>
+                <div class="card-title">Typical Sleep</div>
+                <div class="card-body" id="card-sleep">{{ guidance.sleep }}</div>
+            </div>
+            <div class="guidance-card">
+                <div class="card-icon">🌟</div>
+                <div class="card-title">Milestones Around Now</div>
+                <div class="card-body" id="card-milestones">{{ guidance.milestones }}</div>
+            </div>
+        </div>
+
+        <p class="growth-disclaimer">
+            General reference guidance only, not medical advice — every baby develops differently.
+            If you have concerns about growth, feeding or development, check with your pediatrician or midwife.
+        </p>
+    </div>
+
+    <script>
+        const stages = {{ all_stages | tojson }};
+        const currentIndex = {{ current_index }};
+        let viewIndex = currentIndex;
+
+        function render() {
+            const s = stages[viewIndex];
+            document.getElementById('slider-label').textContent = s.label;
+            document.getElementById('stage-badge').textContent = s.label + ' stage';
+            document.getElementById('card-nappy').textContent = s.nappy_size;
+            document.getElementById('card-feed').textContent = s.feed_volume;
+            document.getElementById('card-sleep').textContent = s.sleep;
+            document.getElementById('card-milestones').textContent = s.milestones;
+
+            document.getElementById('prev-btn').disabled = (viewIndex === 0);
+            document.getElementById('next-btn').disabled = (viewIndex === stages.length - 1);
+            document.getElementById('viewing-note').style.display = (viewIndex === currentIndex) ? 'none' : 'block';
+        }
+
+        function moveSlider(delta) {
+            const newIndex = viewIndex + delta;
+            if (newIndex >= 0 && newIndex < stages.length) {
+                viewIndex = newIndex;
+                render();
+            }
+        }
+
+        function resetSlider() {
+            viewIndex = currentIndex;
+            render();
+        }
+
+        render();
+    </script>
+</body>
+</html>

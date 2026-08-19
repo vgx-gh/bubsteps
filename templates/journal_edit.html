@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Journal Entry - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Ethan's Tracker</h1>
+        {% include "_nav.html" %}
+
+        <h2>Edit Journal Entry</h2>
+        <form method="POST" class="log-form">
+            <label for="entry_date">Date</label>
+            <input type="date" id="entry_date" name="entry_date" value="{{ row.entry_date }}" required>
+
+            <label for="event">Type</label>
+            <input type="text" id="event" name="event" list="event-options" value="{{ row.event or '' }}">
+            <datalist id="event-options">
+                <option value="Appointment">
+                <option value="Notes">
+                <option value="Milestone">
+            </datalist>
+
+            <label for="notes">Details</label>
+            <textarea id="notes" name="notes" style="width:100%; min-height:80px; padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;">{{ row.notes or '' }}</textarea>
+
+            <button type="submit">Save Changes</button>
+        </form>
+        <a class="export-link" href="{{ url_for('journal_view', entry_date=row.entry_date) }}">← Cancel and go back</a>
+    </div>
+</body>
+</html>
