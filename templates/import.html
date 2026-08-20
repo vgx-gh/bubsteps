@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Import - Baby Ethan's Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .import-section-label { font-size: 0.75rem; font-weight: 700; color: #4a90d9; text-transform: uppercase; letter-spacing: 0.03em; margin: 20px 0 6px; }
+        .import-section-label:first-of-type { margin-top: 0; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -13,34 +17,94 @@
 
         <h2>Import History from CSV</h2>
 
-        {% if message %}
-        <div class="weight-callout" style="background:#eafbea; border-color:#bdf0bd; color:#256b25;">{{ message }}</div>
+        <div class="import-section-label">Daily Entries</div>
+        {% if entries_message %}
+        <div class="weight-callout" style="background:#eafbea; border-color:#bdf0bd; color:#256b25;">{{ entries_message }}</div>
         {% endif %}
-        {% if error %}
+        {% if entries_error %}
         <div class="weight-callout" style="background:#fdecec; border-color:#f5b8b8; color:#a33030; text-align:left;">
-            {{ error }}
-            {% if row_errors %}
+            {{ entries_error }}
+            {% if entries_row_errors %}
             <ul style="margin:8px 0 0; padding-left:20px; font-weight:500;">
-                {% for e in row_errors[:20] %}
+                {% for e in entries_row_errors[:20] %}
                 <li>{{ e }}</li>
                 {% endfor %}
-                {% if row_errors|length > 20 %}
-                <li>...and {{ row_errors|length - 20 }} more</li>
+                {% if entries_row_errors|length > 20 %}
+                <li>...and {{ entries_row_errors|length - 20 }} more</li>
                 {% endif %}
             </ul>
             {% endif %}
         </div>
         {% endif %}
-
         <div class="log-form" style="margin-bottom:20px;">
             <p style="font-size:0.85rem; color:#555; margin:0 0 10px;">
-                Upload a CSV with columns <strong>Date, Time, Type, Value</strong> (same format as the
-                "Export all history" download). Date as YYYY-MM-DD, Time as HH:MM, Type matching one of:
+                Columns <strong>Date, Time, Type, Value</strong> (same format as "Export all history").
+                Date as YYYY-MM-DD or DD/MM/YYYY, Time as HH:MM, Type matching one of:
                 {% for key, meta in event_types.items() %}{{ meta.label }}{% if not loop.last %}, {% endif %}{% endfor %}.
             </p>
-            <form method="POST" enctype="multipart/form-data">
-                <label for="csv_file">CSV File</label>
-                <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
+            <form method="POST" action="{{ url_for('import_csv') }}" enctype="multipart/form-data">
+                <label for="entries_csv_file">CSV File</label>
+                <input type="file" id="entries_csv_file" name="csv_file" accept=".csv" required>
+                <button type="submit">Upload and Import</button>
+            </form>
+        </div>
+
+        <div class="import-section-label">Weight</div>
+        {% if weight_message %}
+        <div class="weight-callout" style="background:#eafbea; border-color:#bdf0bd; color:#256b25;">{{ weight_message }}</div>
+        {% endif %}
+        {% if weight_error %}
+        <div class="weight-callout" style="background:#fdecec; border-color:#f5b8b8; color:#a33030; text-align:left;">
+            {{ weight_error }}
+            {% if weight_row_errors %}
+            <ul style="margin:8px 0 0; padding-left:20px; font-weight:500;">
+                {% for e in weight_row_errors[:20] %}
+                <li>{{ e }}</li>
+                {% endfor %}
+                {% if weight_row_errors|length > 20 %}
+                <li>...and {{ weight_row_errors|length - 20 }} more</li>
+                {% endif %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endif %}
+        <div class="log-form" style="margin-bottom:20px;">
+            <p style="font-size:0.85rem; color:#555; margin:0 0 10px;">
+                Columns <strong>Date, Weight</strong>. Date as YYYY-MM-DD or DD/MM/YYYY, Weight in kg.
+            </p>
+            <form method="POST" action="{{ url_for('weight_import') }}" enctype="multipart/form-data">
+                <label for="weight_csv_file">CSV File</label>
+                <input type="file" id="weight_csv_file" name="csv_file" accept=".csv" required>
+                <button type="submit">Upload and Import</button>
+            </form>
+        </div>
+
+        <div class="import-section-label">Journal</div>
+        {% if journal_message %}
+        <div class="weight-callout" style="background:#eafbea; border-color:#bdf0bd; color:#256b25;">{{ journal_message }}</div>
+        {% endif %}
+        {% if journal_error %}
+        <div class="weight-callout" style="background:#fdecec; border-color:#f5b8b8; color:#a33030; text-align:left;">
+            {{ journal_error }}
+            {% if journal_row_errors %}
+            <ul style="margin:8px 0 0; padding-left:20px; font-weight:500;">
+                {% for e in journal_row_errors[:20] %}
+                <li>{{ e }}</li>
+                {% endfor %}
+                {% if journal_row_errors|length > 20 %}
+                <li>...and {{ journal_row_errors|length - 20 }} more</li>
+                {% endif %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endif %}
+        <div class="log-form" style="margin-bottom:20px;">
+            <p style="font-size:0.85rem; color:#555; margin:0 0 10px;">
+                Columns <strong>Date, Type, Notes</strong>. Date as YYYY-MM-DD or DD/MM/YYYY.
+            </p>
+            <form method="POST" action="{{ url_for('journal_import') }}" enctype="multipart/form-data">
+                <label for="journal_csv_file">CSV File</label>
+                <input type="file" id="journal_csv_file" name="csv_file" accept=".csv" required>
                 <button type="submit">Upload and Import</button>
             </form>
         </div>

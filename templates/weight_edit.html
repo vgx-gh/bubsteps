@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Weight - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Ethan's Tracker</h1>
+        {% include "_nav.html" %}
+
+        <h2>Edit Weight Entry</h2>
+        <form method="POST" class="log-form">
+            <label for="entry_date">Date</label>
+            <input type="date" id="entry_date" name="entry_date" value="{{ row.entry_date }}" required>
+
+            <label for="value">Weight (kg)</label>
+            <input type="number" step="any" id="value" name="value" value="{{ row.value }}" required>
+
+            <button type="submit">Save Changes</button>
+        </form>
+        <a class="export-link" href="{{ url_for('weight_view') }}">← Cancel and go back</a>
+    </div>
+</body>
+</html>

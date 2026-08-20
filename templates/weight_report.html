@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weight Report - Baby Ethan's Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #fff; }
+            .container { max-width: 100%; }
+        }
+        .print-btn { display:block; width:100%; padding:12px; margin-bottom:16px; background:#4a90d9; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:1rem; cursor:pointer; }
+        table.weight-report-history { width:100%; table-layout:fixed; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin-top: 16px; }
+        table.weight-report-history th, table.weight-report-history td { padding: 6px 8px; border-bottom:1px solid #eee; text-align:left; font-size: 0.8rem; }
+        table.weight-report-history th { background:#f0f2f5; font-size:0.7rem; text-transform:uppercase; color:#777; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="no-print">
+            <h1>👶 Baby Ethan's Tracker</h1>
+            {% include "_nav.html" %}
+            <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+        </div>
+
+        <h1 style="text-align:left;">Baby Ethan — Weight Report</h1>
+        <p style="color:#888; font-size:0.85rem;">Generated {{ generated_at }}</p>
+
+        {% if latest %}
+        <div class="weight-callout">
+            Latest weight: <span class="value">{{ latest.value }} kg</span>
+            <div style="color:#888; font-size:0.85rem; margin-top:4px;">
+                on {{ latest.date }}
+                {% if change %} · change since last: {{ change }}{% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if chart_svg %}
+        <div class="chart-card">
+            {{ chart_svg | safe }}
+        </div>
+        {% else %}
+        <p class="empty">No weight entries logged yet.</p>
+        {% endif %}
+
+        {% if points %}
+        <h2>Full History</h2>
+        <table class="weight-report-history">
+            <thead>
+                <tr><th>Date</th><th>Weight</th></tr>
+            </thead>
+            <tbody>
+                {% for p in points %}
+                <tr>
+                    <td>{{ p.date }}</td>
+                    <td>{{ p.value }} kg</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</body>
+</html>

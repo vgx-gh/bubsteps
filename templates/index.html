@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Baby Ethan's Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .entry-section-label { font-size: 0.75rem; font-weight: 700; color: #4a90d9; text-transform: uppercase; letter-spacing: 0.03em; margin: 20px 0 6px; }
+        .entry-box { border: 1px solid #dfe7ef; border-radius: 12px; padding: 4px; margin-bottom: 4px; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -28,31 +32,80 @@
             {% endfor %}
         </div>
 
-        <h2>Custom Entry</h2>
-        <form method="POST" class="log-form">
-            <label for="entry_date">Date</label>
-            <input type="date" id="entry_date" name="entry_date" value="{{ today }}" required>
+        <div class="entry-section-label">Daily Entry</div>
+        <div class="entry-box">
+            <form method="POST" class="log-form">
+                <label for="entry_date">Date</label>
+                <input type="date" id="entry_date" name="entry_date" value="{{ today }}" required>
 
-            <label for="entry_time">Time</label>
-            <input type="time" id="entry_time" name="entry_time" value="{{ now }}" required>
+                <label for="entry_time">Time</label>
+                <input type="time" id="entry_time" name="entry_time" value="{{ now }}" required>
 
-            <label for="type">What are you logging?</label>
-            <select id="type" name="type" onchange="updateValueField()" required>
-                {% for key, meta in event_types.items() %}
-                <option value="{{ key }}">{{ meta.label }}</option>
-                {% endfor %}
-            </select>
+                <label for="type">What are you logging?</label>
+                <select id="type" name="type" onchange="updateValueField()" required>
+                    {% for key, meta in event_types.items() %}
+                    <option value="{{ key }}">{{ meta.label }}</option>
+                    {% endfor %}
+                </select>
 
-            <div id="value-wrapper">
-                <label for="value" id="value-label">Amount (ml)</label>
-                <input type="number" step="any" id="value" name="value" placeholder="e.g. 80">
-            </div>
+                <div id="value-wrapper">
+                    <label for="value" id="value-label">Amount (ml)</label>
+                    <input type="number" step="any" id="value" name="value" placeholder="e.g. 80">
+                </div>
 
-            <button type="submit">Save Entry</button>
-        </form>
+                <button type="submit">Save Entry</button>
+            </form>
+        </div>
+
+        <div id="weight-entry-anchor" class="entry-section-label">Weight Entry</div>
+        <div class="entry-box">
+            <form method="POST" action="{{ url_for('weight_add') }}" class="log-form">
+                <label for="weight_date">Date</label>
+                <input type="date" id="weight_date" name="entry_date" value="{{ weight_date_prefill }}" required>
+
+                <label for="weight_value">Weight (kg)</label>
+                <input type="number" step="any" id="weight_value" name="value" placeholder="e.g. 4.35" required>
+
+                <button type="submit">Save Weight</button>
+            </form>
+        </div>
+
+        <div id="journal-entry-anchor" class="entry-section-label">Journal Entry</div>
+        <div class="entry-box">
+            <form method="POST" action="{{ url_for('journal_view') }}" class="log-form">
+                <label for="journal_date">Date</label>
+                <input type="date" id="journal_date" name="entry_date" value="{{ journal_date_prefill }}" required>
+
+                <label for="journal_event">Type</label>
+                <input type="text" id="journal_event" name="event" list="journal-event-options" placeholder="Appointment, Notes, or your own...">
+                <datalist id="journal-event-options">
+                    <option value="Appointment">
+                    <option value="Notes">
+                    <option value="Milestone">
+                </datalist>
+
+                <label for="journal_notes">Details</label>
+                <textarea id="journal_notes" name="notes" style="width:100%; min-height:60px; padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit; font-size:0.9rem; resize:vertical;"></textarea>
+
+                <button type="submit">Add Journal Entry</button>
+            </form>
+        </div>
     </div>
 
     <script>
+        {% if scroll_to_journal %}
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('journal-entry-anchor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('journal_event').focus();
+        });
+        {% endif %}
+        {% if scroll_to_weight %}
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('weight-entry-anchor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('weight_value').focus();
+        });
+        {% endif %}
+
         const units = {
             {% for key, meta in event_types.items() %}
             "{{ key }}": {{ meta.unit|tojson }},
@@ -71,8 +124,8 @@
                 input.removeAttribute('required');
             } else {
                 wrapper.style.display = 'block';
-                label.textContent = unit === 'minutes' ? 'Duration (minutes)' : (unit === 'kg' ? 'Weight (kg)' : 'Amount (ml)');
-                input.placeholder = unit === 'minutes' ? 'e.g. 20' : (unit === 'kg' ? 'e.g. 4.2' : 'e.g. 80');
+                label.textContent = unit === 'minutes' ? 'Duration (minutes)' : 'Amount (ml)';
+                input.placeholder = unit === 'minutes' ? 'e.g. 20' : 'e.g. 80';
                 input.setAttribute('required', 'required');
             }
         }

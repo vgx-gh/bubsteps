@@ -7,8 +7,8 @@
     <a href="{{ url_for('growth_view') }}" {% if active=='growth' %}class="active"{% endif %}>🌱 Growth</a>
 </nav>
 <div class="subnav">
-    <a href="{{ url_for('report_view') }}">🖨️ Printable Report</a>
+    <a href="{{ url_for('report_view') }}">🖨️ Print Report</a>
     <a href="{{ url_for('journal_report') }}">📓 Print Journal</a>
-    <a href="{{ url_for('import_csv') }}">⬆️ Import CSV</a>
-    <a href="{{ url_for('journal_import') }}">⬆️ Import Journal</a>
+    <a href="{{ url_for('weight_report') }}">⚖️ Print Weight</a>
+    <a href="{{ url_for('import_csv') }}">⬆️ Import Data</a>
 </div>

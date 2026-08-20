@@ -9,9 +9,11 @@
         table.weight-history { width:100%; table-layout:fixed; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
         table.weight-history th, table.weight-history td { padding: 6px 8px; border-bottom:1px solid #eee; text-align:left; font-size: 0.8rem; white-space: nowrap; }
         table.weight-history th { background:#f0f2f5; font-size:0.7rem; text-transform:uppercase; color:#777; }
-        table.weight-history th:nth-child(1), table.weight-history td:nth-child(1) { width: 42%; }
-        table.weight-history th:nth-child(2), table.weight-history td:nth-child(2) { width: 28%; }
-        table.weight-history th:nth-child(3), table.weight-history td:nth-child(3) { width: 30%; }
+        table.weight-history th:nth-child(1), table.weight-history td:nth-child(1) { width: 45%; }
+        table.weight-history th:nth-child(2), table.weight-history td:nth-child(2) { width: 30%; }
+        table.weight-history th:nth-child(3), table.weight-history td:nth-child(3) { width: 25%; }
+        .weight-page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; }
+        .weight-add-link { font-size:0.85rem; color:#4a90d9; font-weight:700; text-decoration:none; background:#eaf4ff; padding:6px 14px; border-radius:8px; }
     </style>
 </head>
 <body>
@@ -19,7 +21,10 @@
         <h1>👶 Baby Ethan's Tracker</h1>
         {% include "_nav.html" %}
 
-        <h2>Weight</h2>
+        <div class="weight-page-header">
+            <h2 style="margin:0;">Weight</h2>
+            <a href="{{ url_for('home', weight_date=today) }}#weight-entry-anchor" class="weight-add-link">+ Add</a>
+        </div>
 
         {% if latest %}
         <div class="weight-callout">
@@ -36,21 +41,26 @@
             {{ chart_svg | safe }}
         </div>
         {% else %}
-        <p class="empty">No weight entries logged yet. Add one from the Log Entry page.</p>
+        <p class="empty">No weight entries logged yet.</p>
         {% endif %}
 
         {% if points %}
         <h2>History</h2>
         <table class="weight-history">
             <thead>
-                <tr><th>Date</th><th>Time</th><th>Weight</th></tr>
+                <tr><th>Date</th><th>Weight</th><th></th></tr>
             </thead>
             <tbody>
                 {% for p in points %}
                 <tr>
                     <td>{{ p.date }}</td>
-                    <td>{{ p.time }}</td>
                     <td>{{ p.value }} kg</td>
+                    <td class="row-actions">
+                        <a href="{{ url_for('weight_edit', entry_id=p.id) }}">Edit</a>
+                        <form method="POST" action="{{ url_for('weight_delete', entry_id=p.id) }}" onsubmit="return confirm('Delete this weight entry?');">
+                            <button type="submit" class="link-btn">Delete</button>
+                        </form>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

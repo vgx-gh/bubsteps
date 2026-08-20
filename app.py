@@ -15,7 +15,6 @@ EVENT_TYPES = {
     "pump": {"label": "Pump", "unit": "ml"},
     "poo": {"label": "Poo", "unit": None},
     "pee": {"label": "Pee", "unit": None},
-    "weight": {"label": "Weight", "unit": "kg"},
 }
 
 # Types that count as an actual feed, for the "last fed" banner
@@ -143,7 +142,38 @@ def init_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS weight_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_date TEXT NOT NULL,
+            value REAL NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
     conn.commit()
+
+    # One-time migration: move any weight entries logged the old way (inside the
+    # generic 'entries' table) into the new dedicated weight_entries table.
+    # Safe to run every startup - only migrates rows that haven't been moved yet.
+    old_weight_rows = conn.execute(
+        "SELECT * FROM entries WHERE type = 'weight' ORDER BY entry_date, entry_time"
+    ).fetchall()
+    if old_weight_rows:
+        for row in old_weight_rows:
+            already_migrated = conn.execute(
+                "SELECT 1 FROM weight_entries WHERE entry_date = ? AND value = ?",
+                (row["entry_date"], row["value"]),
+            ).fetchone()
+            if not already_migrated:
+                conn.execute(
+                    "INSERT INTO weight_entries (entry_date, value, created_at) VALUES (?, ?, ?)",
+                    (row["entry_date"], row["value"], row["created_at"]),
+                )
+        conn.execute("DELETE FROM entries WHERE type = 'weight'")
+        conn.commit()
+
     conn.close()
 
 
@@ -176,6 +206,10 @@ def home():
     today = date.today().isoformat()
     now = datetime.now().strftime("%H:%M")
     last_fed = get_last_fed()
+    journal_date_prefill = request.args.get("journal_date") or today
+    scroll_to_journal = bool(request.args.get("journal_date"))
+    weight_date_prefill = request.args.get("weight_date") or today
+    scroll_to_weight = bool(request.args.get("weight_date"))
     return render_template(
         "index.html",
         event_types=EVENT_TYPES,
@@ -183,6 +217,10 @@ def home():
         now=now,
         quick_presets=QUICK_LOG_PRESETS,
         last_fed=last_fed,
+        journal_date_prefill=journal_date_prefill,
+        scroll_to_journal=scroll_to_journal,
+        weight_date_prefill=weight_date_prefill,
+        scroll_to_weight=scroll_to_weight,
         active="home",
     )
 
@@ -372,11 +410,11 @@ def week_view():
 def weight_view():
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM entries WHERE type = 'weight' ORDER BY entry_date, entry_time"
+        "SELECT * FROM weight_entries ORDER BY entry_date"
     ).fetchall()
     conn.close()
 
-    points = [{"date": r["entry_date"], "time": r["entry_time"], "value": r["value"]} for r in rows]
+    points = [{"id": r["id"], "date": r["entry_date"], "value": r["value"]} for r in rows]
 
     chart_svg = None
     if len(points) >= 1:
@@ -394,7 +432,171 @@ def weight_view():
         chart_svg=chart_svg,
         latest=latest,
         change=change,
+        today=date.today().isoformat(),
         active="weight",
+    )
+
+
+@app.route("/weight/report")
+def weight_report():
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM weight_entries ORDER BY entry_date"
+    ).fetchall()
+    conn.close()
+
+    points = [{"id": r["id"], "date": r["entry_date"], "value": r["value"]} for r in rows]
+
+    chart_svg = None
+    if len(points) >= 1:
+        chart_svg = build_weight_chart_svg(points)
+
+    latest = points[-1] if points else None
+    change = None
+    if len(points) >= 2:
+        diff = points[-1]["value"] - points[-2]["value"]
+        change = f"+{diff:.2f} kg" if diff >= 0 else f"{diff:.2f} kg"
+
+    return render_template(
+        "weight_report.html",
+        points=list(reversed(points)),  # newest first for the table
+        chart_svg=chart_svg,
+        latest=latest,
+        change=change,
+        generated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
+    )
+
+
+@app.route("/weight/add", methods=["POST"])
+def weight_add():
+    entry_date = request.form.get("entry_date") or date.today().isoformat()
+    raw_value = request.form.get("value")
+
+    try:
+        value = float(raw_value)
+    except (TypeError, ValueError):
+        return redirect(url_for("weight_view"))
+
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO weight_entries (entry_date, value, created_at) VALUES (?, ?, ?)",
+        (entry_date, value, datetime.now().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return redirect(url_for("weight_view"))
+
+
+@app.route("/weight/edit/<int:entry_id>", methods=["GET", "POST"])
+def weight_edit(entry_id):
+    conn = get_db()
+
+    if request.method == "POST":
+        entry_date = request.form.get("entry_date")
+        try:
+            value = float(request.form.get("value"))
+        except (TypeError, ValueError):
+            conn.close()
+            return redirect(url_for("weight_view"))
+
+        conn.execute(
+            "UPDATE weight_entries SET entry_date = ?, value = ? WHERE id = ?",
+            (entry_date, value, entry_id),
+        )
+        conn.commit()
+        conn.close()
+        return redirect(url_for("weight_view"))
+
+    row = conn.execute("SELECT * FROM weight_entries WHERE id = ?", (entry_id,)).fetchone()
+    conn.close()
+    if row is None:
+        return redirect(url_for("weight_view"))
+
+    return render_template("weight_edit.html", row=row, active="weight")
+
+
+@app.route("/weight/delete/<int:entry_id>", methods=["POST"])
+def weight_delete(entry_id):
+    conn = get_db()
+    conn.execute("DELETE FROM weight_entries WHERE id = ?", (entry_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for("weight_view"))
+
+
+    return render_template(
+        "import.html",
+        journal_message=message, journal_error=error, journal_row_errors=row_errors,
+        entries_message=None, entries_error=None, entries_row_errors=[],
+        weight_message=None, weight_error=None, weight_row_errors=[],
+        event_types=EVENT_TYPES, active="import",
+    )
+
+
+@app.route("/weight/import", methods=["POST"])
+def weight_import():
+    message = None
+    error = None
+    row_errors = []
+
+    file = request.files.get("csv_file")
+    if not file or file.filename == "":
+        error = "No file selected."
+    else:
+        try:
+            content = file.stream.read().decode("utf-8")
+            reader = csv.DictReader(io.StringIO(content))
+
+            valid_rows = []
+            for line_num, row in enumerate(reader, start=2):
+                raw_date = (row.get("Date") or "").strip()
+                raw_value = (row.get("Weight") or row.get("Value") or "").strip()
+
+                normalized_date = parse_flexible_date(raw_date)
+                if not normalized_date:
+                    row_errors.append(f"Row {line_num}: date '{raw_date}' isn't in a recognized format (try YYYY-MM-DD or DD/MM/YYYY)")
+                    continue
+
+                try:
+                    value = float(raw_value)
+                except (TypeError, ValueError):
+                    row_errors.append(f"Row {line_num}: weight '{raw_value}' isn't a valid number")
+                    continue
+
+                valid_rows.append((normalized_date, value))
+
+            if row_errors:
+                error = (
+                    f"Import stopped — {len(row_errors)} row(s) had problems, and nothing was written "
+                    f"to the database. Fix these and re-upload:"
+                )
+            elif not valid_rows:
+                error = "No valid rows found in that file."
+            else:
+                conn = get_db()
+                try:
+                    now_iso = datetime.now().isoformat()
+                    conn.executemany(
+                        "INSERT INTO weight_entries (entry_date, value, created_at) VALUES (?, ?, ?)",
+                        [(d, v, now_iso) for d, v in valid_rows],
+                    )
+                    conn.commit()
+                    message = f"Imported {len(valid_rows)} weight entries successfully."
+                except Exception as e:
+                    conn.rollback()
+                    error = f"Import failed partway through and was rolled back — nothing was saved. Error: {e}"
+                finally:
+                    conn.close()
+
+        except Exception as e:
+            error = f"Could not read that file: {e}"
+
+    return render_template(
+        "import.html",
+        weight_message=message, weight_error=error, weight_row_errors=row_errors,
+        entries_message=None, entries_error=None, entries_row_errors=[],
+        journal_message=None, journal_error=None, journal_row_errors=[],
+        event_types=EVENT_TYPES, active="import",
     )
 
 
@@ -623,7 +825,13 @@ def journal_import():
             except Exception as e:
                 error = f"Could not read that file: {e}"
 
-    return render_template("journal_import.html", message=message, error=error, row_errors=row_errors, active="journal")
+    return render_template(
+        "import.html",
+        journal_message=message, journal_error=error, journal_row_errors=row_errors,
+        entries_message=None, entries_error=None, entries_row_errors=[],
+        weight_message=None, weight_error=None, weight_row_errors=[],
+        event_types=EVENT_TYPES, active="import",
+    )
 
 
 @app.route("/journal/report")
@@ -855,7 +1063,10 @@ def import_csv():
                 error = f"Could not read that file: {e}"
 
     return render_template(
-        "import.html", message=message, error=error, row_errors=row_errors,
+        "import.html",
+        entries_message=message, entries_error=error, entries_row_errors=row_errors,
+        weight_message=None, weight_error=None, weight_row_errors=[],
+        journal_message=None, journal_error=None, journal_row_errors=[],
         event_types=EVENT_TYPES, active="import",
     )
 

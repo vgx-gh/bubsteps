@@ -7,8 +7,11 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .journal-day { background:#fff; border-radius:10px; padding:12px 14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+        .journal-day.is-today { background: #eaf4ff; border: 1px solid #bcdcf7; }
         .journal-day-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
         .journal-day-label { font-weight:700; font-size:0.9rem; color:#333; }
+        .journal-day-header-right { display:flex; align-items:center; gap:8px; }
+        .journal-day-add { font-size:0.72rem; color:#4a90d9; font-weight:700; text-decoration:none; background:#eaf4ff; padding:3px 8px; border-radius:8px; }
         .journal-day-number { font-size:0.75rem; color:#4a90d9; font-weight:700; background:#eaf4ff; padding:2px 8px; border-radius:10px; }
         .journal-entry { border-top:1px solid #f0f0f0; padding:8px 0; }
         .journal-entry:first-of-type { border-top:none; padding-top:0; }
@@ -18,10 +21,6 @@
         .journal-entry-actions a { font-size:0.72rem; color:#4a90d9; text-decoration:none; font-weight:600; margin-right:10px; }
         .journal-entry-actions button { font-size:0.72rem; color:#d9534f; background:none; border:none; font-weight:600; cursor:pointer; padding:0; }
         .journal-empty { font-size:0.8rem; color:#bbb; font-style:italic; }
-        .add-entry-form { background:#fff; border-radius:10px; padding:14px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
-        .add-entry-form input, .add-entry-form textarea { width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit; font-size:0.9rem; margin-bottom:8px; }
-        .add-entry-form textarea { min-height:60px; resize:vertical; }
-        .add-entry-form button { padding:8px 16px; background:#4a90d9; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; }
         .day-scroll a.disabled { color:#ccc; pointer-events:none; font-weight:700; }
     </style>
 </head>
@@ -53,29 +52,15 @@
         <div class="last-fed-banner">Week {{ week_number }} of Ethan's life</div>
         <h2>Week of {{ week_start }} to {{ week_end }}</h2>
 
-        <div class="add-entry-form">
-            <form method="POST">
-                <label for="entry_date_add">Date</label>
-                <input type="date" id="entry_date_add" name="entry_date" value="{{ today }}" required>
-                <label for="event">Type</label>
-                <input type="text" id="event" name="event" list="event-options" placeholder="Appointment, Notes, or your own...">
-                <datalist id="event-options">
-                    <option value="Appointment">
-                    <option value="Notes">
-                    <option value="Milestone">
-                </datalist>
-                <label for="notes">Details</label>
-                <textarea id="notes" name="notes"></textarea>
-                <button type="submit">Add Journal Entry</button>
-            </form>
-        </div>
-
         <h2>Day by Day</h2>
         {% for d in days %}
-        <div class="journal-day">
+        <div class="journal-day {% if d.date == today %}is-today{% endif %}">
             <div class="journal-day-header">
                 <span class="journal-day-label">{{ d.label }}, {{ d.date }}</span>
-                <span class="journal-day-number">Day {{ d.day_number }}</span>
+                <span class="journal-day-header-right">
+                    <a href="{{ url_for('home', journal_date=d.date) }}#journal-entry-anchor" class="journal-day-add">+ Add</a>
+                    <span class="journal-day-number">Day {{ d.day_number }}</span>
+                </span>
             </div>
             {% if d.entries %}
                 {% for e in d.entries %}

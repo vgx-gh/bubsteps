@@ -13,7 +13,7 @@
         .week-mini-totals td { padding: 3px 6px; font-size: 0.78rem; color:#444; border-bottom: 1px solid #f2f2f2; }
         .week-mini-totals td:first-child { color:#777; width:55%; }
         .week-mini-totals td:last-child { text-align:right; font-weight:600; }
-        .week-badge { display:inline-block; background:#eaf4ff; color:#2c5f8a; font-weight:700; font-size:0.8rem; padding:6px 14px; border-radius:20px; margin-bottom:12px; }
+        .week-life-banner { background:#eaf4ff; border:1px solid #bcdcf7; color:#2c5f8a; padding:12px 14px; border-radius:8px; margin-bottom:16px; font-weight:600; text-align:center; font-size:0.9rem; }
         .day-scroll a.disabled { color:#ccc; pointer-events:none; font-weight:700; }
     </style>
 </head>
@@ -21,6 +21,12 @@
     <div class="container">
         <h1>👶 Baby Ethan's Tracker</h1>
         {% include "_nav.html" with context %}
+
+        {% if last_fed %}
+        <div class="last-fed-banner status-{{ last_fed.status }}">
+            Last fed ({{ last_fed.type_label }}) at {{ last_fed.time }} — {{ last_fed.ago }}
+        </div>
+        {% endif %}
 
         <form method="GET" class="date-picker">
             <label for="entry_date">Any date in the week you want to view</label>
@@ -42,13 +48,7 @@
             <a href="{{ url_for('week_view', entry_date=next_week_anchor) }}">Next Week ▶</a>
         </div>
 
-        {% if last_fed %}
-        <div class="last-fed-banner status-{{ last_fed.status }}">
-            Last fed ({{ last_fed.type_label }}) at {{ last_fed.time }} — {{ last_fed.ago }}
-        </div>
-        {% endif %}
-
-        <div class="week-badge">Week {{ week_number }} of Ethan's life</div>
+        <div class="week-life-banner">Week {{ week_number }} of Ethan's life</div>
         <h2>Week of {{ week_start }} to {{ week_end }}</h2>
 
         <h2>Day by Day</h2>
