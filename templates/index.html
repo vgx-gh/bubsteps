@@ -32,11 +32,11 @@
             {% endfor %}
         </div>
 
-        <div class="entry-section-label">Daily Entry</div>
+        <div id="daily-entry-anchor" class="entry-section-label">Daily Entry</div>
         <div class="entry-box">
             <form method="POST" class="log-form">
                 <label for="entry_date">Date</label>
-                <input type="date" id="entry_date" name="entry_date" value="{{ today }}" required>
+                <input type="date" id="entry_date" name="entry_date" value="{{ daily_date_prefill }}" required>
 
                 <label for="entry_time">Time</label>
                 <input type="time" id="entry_time" name="entry_time" value="{{ now }}" required>
@@ -93,6 +93,12 @@
     </div>
 
     <script>
+        {% if scroll_to_daily %}
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('daily-entry-anchor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('type').focus();
+        });
+        {% endif %}
         {% if scroll_to_journal %}
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('journal-entry-anchor').scrollIntoView({ behavior: 'smooth', block: 'start' });

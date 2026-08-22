@@ -101,6 +101,23 @@ def parse_flexible_date(raw_date):
             continue
     return None
 
+
+def parse_tags(raw_tags):
+    """Turn a comma-separated tag string into a clean list: trimmed, deduped, empty entries dropped."""
+    if not raw_tags:
+        return []
+    seen = []
+    for t in raw_tags.split(","):
+        t = t.strip()
+        if t and t not in seen:
+            seen.append(t)
+    return seen
+
+
+def format_tags(tag_list):
+    """Turn a list of tags back into the comma-separated string stored in the database."""
+    return ", ".join(tag_list) if tag_list else None
+
 # Quick-log presets shown as one-tap buttons on the home page
 QUICK_LOG_PRESETS = [
     {"label": "Formula 90ml", "type": "formula", "value": 90},
@@ -174,6 +191,13 @@ def init_db():
         conn.execute("DELETE FROM entries WHERE type = 'weight'")
         conn.commit()
 
+    # One-time migration: add a 'tags' column to journal_entries if it doesn't
+    # already exist (needed since the table was created before tags existed).
+    existing_columns = [row["name"] for row in conn.execute("PRAGMA table_info(journal_entries)").fetchall()]
+    if "tags" not in existing_columns:
+        conn.execute("ALTER TABLE journal_entries ADD COLUMN tags TEXT")
+        conn.commit()
+
     conn.close()
 
 
@@ -210,6 +234,8 @@ def home():
     scroll_to_journal = bool(request.args.get("journal_date"))
     weight_date_prefill = request.args.get("weight_date") or today
     scroll_to_weight = bool(request.args.get("weight_date"))
+    daily_date_prefill = request.args.get("daily_date") or today
+    scroll_to_daily = bool(request.args.get("daily_date"))
     return render_template(
         "index.html",
         event_types=EVENT_TYPES,
@@ -221,6 +247,8 @@ def home():
         scroll_to_journal=scroll_to_journal,
         weight_date_prefill=weight_date_prefill,
         scroll_to_weight=scroll_to_weight,
+        daily_date_prefill=daily_date_prefill,
+        scroll_to_daily=scroll_to_daily,
         active="home",
     )
 
@@ -401,7 +429,9 @@ def week_view():
         is_current_week=is_current_week,
         week_number=week_number,
         is_birth_week=is_birth_week,
+        birth_week_anchor=BABY_BIRTH_DATE.isoformat(),
         last_fed=last_fed,
+        today=date.today().isoformat(),
         active="week",
     )
 
@@ -671,11 +701,12 @@ def journal_view():
         entry_date = request.form.get("entry_date") or date.today().isoformat()
         event = (request.form.get("event") or "").strip()
         notes = (request.form.get("notes") or "").strip()
+        tags = parse_tags(request.form.get("tags"))
 
         conn = get_db()
         conn.execute(
-            "INSERT INTO journal_entries (entry_date, event, notes, created_at) VALUES (?, ?, ?, ?)",
-            (entry_date, event, notes, datetime.now().isoformat()),
+            "INSERT INTO journal_entries (entry_date, event, notes, tags, created_at) VALUES (?, ?, ?, ?, ?)",
+            (entry_date, event, notes, format_tags(tags), datetime.now().isoformat()),
         )
         conn.commit()
         conn.close()
@@ -697,8 +728,15 @@ def journal_view():
     conn.close()
 
     entries_by_date = {}
+    all_tags_this_week = set()
     for r in rows:
-        entries_by_date.setdefault(r["entry_date"], []).append(r)
+        tag_list = parse_tags(r["tags"])
+        all_tags_this_week.update(tag_list)
+        entry_dict = {
+            "id": r["id"], "entry_date": r["entry_date"], "event": r["event"],
+            "notes": r["notes"], "tags": tag_list,
+        }
+        entries_by_date.setdefault(r["entry_date"], []).append(entry_dict)
 
     days = []
     for i in range(7):
@@ -723,12 +761,14 @@ def journal_view():
         week_end=week_end.isoformat(),
         week_number=week_number,
         is_birth_week=is_birth_week,
+        birth_week_anchor=BABY_BIRTH_DATE.isoformat(),
         days=days,
         anchor=anchor_str,
         prev_week_anchor=prev_week_anchor,
         next_week_anchor=next_week_anchor,
         is_current_week=is_current_week,
         today=today,
+        all_tags_this_week=sorted(all_tags_this_week),
         active="journal",
     )
 

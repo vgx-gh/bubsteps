@@ -41,6 +41,11 @@
             {% else %}
                 <a href="{{ url_for('journal_view', entry_date=prev_week_anchor) }}">◀ Prev Week</a>
             {% endif %}
+            {% if is_birth_week %}
+                <span class="disabled" title="Already at Week 0">⏮</span>
+            {% else %}
+                <a href="{{ url_for('journal_view', entry_date=birth_week_anchor) }}" title="Back to Week 0">⏮</a>
+            {% endif %}
             {% if is_current_week %}
                 <span class="today-label">This Week</span>
             {% else %}

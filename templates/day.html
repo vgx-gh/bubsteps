@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daily View - Baby Ethan's Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .daily-add-link { font-size:0.72rem; color:#4a90d9; font-weight:700; text-decoration:none; background:#eaf4ff; padding:3px 8px; border-radius:8px; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -45,7 +48,10 @@
         </table>
 
         <h2>
-            Entries
+            <span>
+                Entries
+                <a href="{{ url_for('home', daily_date=entry_date) }}#daily-entry-anchor" class="daily-add-link" style="margin-left:8px; vertical-align:middle;">+ Add</a>
+            </span>
             {% if rows %}
             <span class="filter-wrapper">
                 <button type="button" class="filter-toggle" onclick="document.getElementById('type-filter-menu').classList.toggle('open')">Filter Type ▾</button>

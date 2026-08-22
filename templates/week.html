@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .week-day-card { background:#fff; border-radius:10px; padding:12px 14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+        .week-day-card.is-today { background: #eaf4ff; border: 1px solid #bcdcf7; }
         .week-day-card h3 { margin: 0 0 8px 0; font-size: 0.95rem; display:flex; justify-content:space-between; align-items:center; }
         .week-day-card h3 a { font-size: 0.72rem; color:#4a90d9; font-weight:600; text-decoration:none; }
         .week-mini-totals { width:100%; border-collapse:collapse; }
@@ -40,6 +41,11 @@
             {% else %}
                 <a href="{{ url_for('week_view', entry_date=prev_week_anchor) }}">◀ Prev Week</a>
             {% endif %}
+            {% if is_birth_week %}
+                <span class="disabled" title="Already at Week 0">⏮</span>
+            {% else %}
+                <a href="{{ url_for('week_view', entry_date=birth_week_anchor) }}" title="Back to Week 0">⏮</a>
+            {% endif %}
             {% if is_current_week %}
                 <span class="today-label">This Week</span>
             {% else %}
@@ -53,7 +59,7 @@
 
         <h2>Day by Day</h2>
         {% for d in days %}
-        <div class="week-day-card">
+        <div class="week-day-card {% if d.date == today %}is-today{% endif %}">
             <h3>{{ d.label }} <a href="{{ url_for('day_view', entry_date=d.date) }}">View day →</a></h3>
             <table class="week-mini-totals">
                 <tr><td>Total Breast Time</td><td>{{ d.totals.breast_time_display }}</td></tr>
