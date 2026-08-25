@@ -2,6 +2,8 @@
 tracker.db
 backups/
 
+static/uploads/
+
 # Python runtime junk
 __pycache__/
 *.pyc
