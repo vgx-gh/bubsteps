@@ -1,11 +1,21 @@
 import sqlite3
 import csv
 import io
+import os
 from datetime import datetime, date, timedelta
-from flask import Flask, render_template, request, redirect, url_for, Response
+from flask import Flask, render_template, request, redirect, url_for, Response, send_file
+from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__)
 DB_PATH = "tracker.db"
+PHOTO_UPLOAD_DIR = os.path.join("static", "uploads", "photo_year")
+
+# Background themes for the Photo Year A3 print - each just changes the accent colors
+PHOTO_YEAR_THEMES = {
+    "soft_blue": {"label": "Soft Blue", "bg": (234, 244, 255), "accent": (74, 144, 217), "text": (44, 95, 138)},
+    "warm_peach": {"label": "Warm Peach", "bg": (255, 241, 230), "accent": (224, 139, 92), "text": (150, 82, 40)},
+    "mint_pastel": {"label": "Mint Pastel", "bg": (232, 248, 240), "accent": (85, 172, 132), "text": (40, 110, 78)},
+}
 
 # Event types and what unit each one is measured in
 EVENT_TYPES = {
@@ -166,6 +176,24 @@ def init_db():
             entry_date TEXT NOT NULL,
             value REAL NOT NULL,
             created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS monthly_photos (
+            month_number INTEGER PRIMARY KEY,
+            filename TEXT NOT NULL,
+            uploaded_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS weekly_photos (
+            week_number INTEGER PRIMARY KEY,
+            filename TEXT NOT NULL,
+            uploaded_at TEXT NOT NULL
         )
         """
     )
@@ -943,6 +971,337 @@ def growth_view():
         current_index=current_index,
         birth_date=BABY_BIRTH_DATE.isoformat(),
         active="growth",
+    )
+
+
+@app.route("/photo-year")
+def photo_year_view():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM monthly_photos").fetchall()
+    conn.close()
+
+    photos_by_month = {r["month_number"]: r["filename"] for r in rows}
+    months = [{"number": i, "filename": photos_by_month.get(i)} for i in range(1, 13)]
+    filled_count = len(photos_by_month)
+
+    return render_template(
+        "photo_year.html",
+        months=months,
+        filled_count=filled_count,
+        themes=PHOTO_YEAR_THEMES,
+        active="growth",
+    )
+
+
+@app.route("/photo-year/upload", methods=["POST"])
+def photo_year_upload():
+    try:
+        month_number = int(request.form.get("month_number"))
+    except (TypeError, ValueError):
+        return redirect(url_for("photo_year_view"))
+
+    if month_number < 1 or month_number > 12:
+        return redirect(url_for("photo_year_view"))
+
+    file = request.files.get("photo")
+    if not file or file.filename == "":
+        return redirect(url_for("photo_year_view"))
+
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".webp"}
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in allowed_extensions:
+        return redirect(url_for("photo_year_view"))
+
+    os.makedirs(PHOTO_UPLOAD_DIR, exist_ok=True)
+
+    # Remove any previous photo for this month before saving the new one
+    conn = get_db()
+    existing = conn.execute(
+        "SELECT filename FROM monthly_photos WHERE month_number = ?", (month_number,)
+    ).fetchone()
+    if existing:
+        old_path = os.path.join(PHOTO_UPLOAD_DIR, existing["filename"])
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    safe_filename = f"month_{month_number:02d}{ext}"
+    file.save(os.path.join(PHOTO_UPLOAD_DIR, safe_filename))
+
+    conn.execute(
+        """
+        INSERT INTO monthly_photos (month_number, filename, uploaded_at) VALUES (?, ?, ?)
+        ON CONFLICT(month_number) DO UPDATE SET filename = excluded.filename, uploaded_at = excluded.uploaded_at
+        """,
+        (month_number, safe_filename, datetime.now().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("photo_year_view"))
+
+
+@app.route("/photo-year/delete/<int:month_number>", methods=["POST"])
+def photo_year_delete(month_number):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT filename FROM monthly_photos WHERE month_number = ?", (month_number,)
+    ).fetchone()
+    if row:
+        path = os.path.join(PHOTO_UPLOAD_DIR, row["filename"])
+        if os.path.exists(path):
+            os.remove(path)
+        conn.execute("DELETE FROM monthly_photos WHERE month_number = ?", (month_number,))
+        conn.commit()
+    conn.close()
+    return redirect(url_for("photo_year_view"))
+
+
+def get_photo_year_font(size, bold=False):
+    """Load a nice font if available (Linux paths for the Pi, Windows paths for local
+    testing), otherwise fall back to PIL's built-in font at the requested size so this
+    never crashes AND still scales correctly even without any font files installed."""
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "C:\\Windows\\Fonts\\arialbd.ttf" if bold else "C:\\Windows\\Fonts\\arial.ttf",
+        "C:\\Windows\\Fonts\\segoeuib.ttf" if bold else "C:\\Windows\\Fonts\\segoeui.ttf",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return ImageFont.truetype(path, size)
+    # Nothing found (rare) - PIL's built-in default font DOES accept a size argument
+    # in modern Pillow, so this is a genuine fallback, not a silent "always tiny" trap
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
+def build_photo_collage_pdf(items_data, theme_key, title_text, label_prefix, upload_dir):
+    """Compose a print-ready A3 (300 DPI) collage of 12 photos using Pillow.
+    Shared by both the 'Ethan's First Year' (months) and 'Ethan's First 12 Weeks' pages."""
+    theme = PHOTO_YEAR_THEMES.get(theme_key, PHOTO_YEAR_THEMES["soft_blue"])
+
+    dpi = 300
+    page_w = int(297 / 25.4 * dpi)   # A3 width in px at 300 DPI (portrait)
+    page_h = int(420 / 25.4 * dpi)   # A3 height in px at 300 DPI
+
+    canvas = Image.new("RGB", (page_w, page_h), theme["bg"])
+    draw = ImageDraw.Draw(canvas)
+
+    # Title - auto-shrinks to fit the page width so it can never overflow,
+    # regardless of how long the title text is
+    title_font = get_photo_year_font(280, bold=True)
+    max_title_w = page_w - 300  # keep clear of both edges
+    while True:
+        bbox = draw.textbbox((0, 0), title_text, font=title_font)
+        title_w = bbox[2] - bbox[0]
+        if title_w <= max_title_w or title_font.size <= 60:
+            break
+        title_font = get_photo_year_font(title_font.size - 10, bold=True)
+    draw.text(((page_w - title_w) / 2, 90), title_text, font=title_font, fill=theme["text"])
+
+    # Grid: 3 columns x 4 rows
+    cols, rows = 3, 4
+    margin = 150
+    top_offset = 480
+    label_height = 110
+    grid_w = page_w - margin * 2
+    grid_h = page_h - top_offset - margin
+    cell_w = grid_w // cols
+    cell_h = (grid_h - label_height * rows) // rows
+
+    label_font = get_photo_year_font(130, bold=True)
+
+    for i, item in enumerate(items_data):
+        col = i % cols
+        row = i // cols
+        cell_x = margin + col * cell_w
+        cell_y = top_offset + row * (cell_h + label_height)
+
+        photo_area_w = cell_w - 40
+        photo_area_h = cell_h - 40
+        photo_x = cell_x + 20
+        photo_y = cell_y + 20
+
+        # Draw a soft card background behind each photo slot
+        draw.rectangle(
+            [cell_x + 10, cell_y + 10, cell_x + cell_w - 10, cell_y + cell_h - 10],
+            fill=(255, 255, 255), outline=theme["accent"], width=4,
+        )
+
+        if item["filename"]:
+            photo_path = os.path.join(upload_dir, item["filename"])
+            if os.path.exists(photo_path):
+                img = Image.open(photo_path).convert("RGB")
+                # Center-crop ("cover" style) so the photo fills the cell without stretching
+                img_ratio = img.width / img.height
+                target_ratio = photo_area_w / photo_area_h
+                if img_ratio > target_ratio:
+                    new_height = img.height
+                    new_width = int(new_height * target_ratio)
+                    left = (img.width - new_width) // 2
+                    img = img.crop((left, 0, left + new_width, new_height))
+                else:
+                    new_width = img.width
+                    new_height = int(new_width / target_ratio)
+                    top = (img.height - new_height) // 2
+                    img = img.crop((0, top, new_width, top + new_height))
+                img = img.resize((photo_area_w, photo_area_h), Image.LANCZOS)
+                canvas.paste(img, (photo_x, photo_y))
+        else:
+            # Placeholder for an item with no photo uploaded yet
+            draw.rectangle(
+                [photo_x, photo_y, photo_x + photo_area_w, photo_y + photo_area_h],
+                fill=(245, 245, 245),
+            )
+            placeholder_font = get_photo_year_font(70)
+            ph_text = "No photo yet"
+            pbbox = draw.textbbox((0, 0), ph_text, font=placeholder_font)
+            pw = pbbox[2] - pbbox[0]
+            draw.text(
+                (photo_x + (photo_area_w - pw) / 2, photo_y + photo_area_h / 2 - 25),
+                ph_text, font=placeholder_font, fill=(180, 180, 180),
+            )
+
+        # Label below the photo cell (e.g. "Month 3" or "Week 7")
+        label_text = f"{label_prefix} {item['number']}"
+        lbbox = draw.textbbox((0, 0), label_text, font=label_font)
+        lw = lbbox[2] - lbbox[0]
+        draw.text(
+            (cell_x + (cell_w - lw) / 2, cell_y + cell_h - 15),
+            label_text, font=label_font, fill=theme["text"],
+        )
+
+    buffer = io.BytesIO()
+    canvas.save(buffer, "PDF", resolution=float(dpi))
+    buffer.seek(0)
+    return buffer
+
+
+@app.route("/photo-year/generate")
+def photo_year_generate():
+    theme_key = request.args.get("theme", "soft_blue")
+
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM monthly_photos").fetchall()
+    conn.close()
+
+    photos_by_month = {r["month_number"]: r["filename"] for r in rows}
+    months_data = [{"number": i, "filename": photos_by_month.get(i)} for i in range(1, 13)]
+
+    pdf_buffer = build_photo_collage_pdf(months_data, theme_key, "Ethan's First Year", "Month", PHOTO_UPLOAD_DIR)
+
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="ethans-first-year.pdf",
+    )
+
+
+@app.route("/photo-weeks")
+def photo_weeks_view():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM weekly_photos").fetchall()
+    conn.close()
+
+    photos_by_week = {r["week_number"]: r["filename"] for r in rows}
+    weeks = [{"number": i, "filename": photos_by_week.get(i)} for i in range(1, 13)]
+    filled_count = len(photos_by_week)
+
+    return render_template(
+        "photo_weeks.html",
+        weeks=weeks,
+        filled_count=filled_count,
+        themes=PHOTO_YEAR_THEMES,
+        active="growth",
+    )
+
+
+@app.route("/photo-weeks/upload", methods=["POST"])
+def photo_weeks_upload():
+    try:
+        week_number = int(request.form.get("week_number"))
+    except (TypeError, ValueError):
+        return redirect(url_for("photo_weeks_view"))
+
+    if week_number < 1 or week_number > 12:
+        return redirect(url_for("photo_weeks_view"))
+
+    file = request.files.get("photo")
+    if not file or file.filename == "":
+        return redirect(url_for("photo_weeks_view"))
+
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".webp"}
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in allowed_extensions:
+        return redirect(url_for("photo_weeks_view"))
+
+    weeks_upload_dir = os.path.join("static", "uploads", "photo_weeks")
+    os.makedirs(weeks_upload_dir, exist_ok=True)
+
+    conn = get_db()
+    existing = conn.execute(
+        "SELECT filename FROM weekly_photos WHERE week_number = ?", (week_number,)
+    ).fetchone()
+    if existing:
+        old_path = os.path.join(weeks_upload_dir, existing["filename"])
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    safe_filename = f"week_{week_number:02d}{ext}"
+    file.save(os.path.join(weeks_upload_dir, safe_filename))
+
+    conn.execute(
+        """
+        INSERT INTO weekly_photos (week_number, filename, uploaded_at) VALUES (?, ?, ?)
+        ON CONFLICT(week_number) DO UPDATE SET filename = excluded.filename, uploaded_at = excluded.uploaded_at
+        """,
+        (week_number, safe_filename, datetime.now().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("photo_weeks_view"))
+
+
+@app.route("/photo-weeks/delete/<int:week_number>", methods=["POST"])
+def photo_weeks_delete(week_number):
+    weeks_upload_dir = os.path.join("static", "uploads", "photo_weeks")
+    conn = get_db()
+    row = conn.execute(
+        "SELECT filename FROM weekly_photos WHERE week_number = ?", (week_number,)
+    ).fetchone()
+    if row:
+        path = os.path.join(weeks_upload_dir, row["filename"])
+        if os.path.exists(path):
+            os.remove(path)
+        conn.execute("DELETE FROM weekly_photos WHERE week_number = ?", (week_number,))
+        conn.commit()
+    conn.close()
+    return redirect(url_for("photo_weeks_view"))
+
+
+@app.route("/photo-weeks/generate")
+def photo_weeks_generate():
+    theme_key = request.args.get("theme", "soft_blue")
+
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM weekly_photos").fetchall()
+    conn.close()
+
+    photos_by_week = {r["week_number"]: r["filename"] for r in rows}
+    weeks_data = [{"number": i, "filename": photos_by_week.get(i)} for i in range(1, 13)]
+
+    weeks_upload_dir = os.path.join("static", "uploads", "photo_weeks")
+    pdf_buffer = build_photo_collage_pdf(weeks_data, theme_key, "Ethan's First 12 Weeks", "Week", weeks_upload_dir)
+
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="ethans-first-12-weeks.pdf",
     )
 
 

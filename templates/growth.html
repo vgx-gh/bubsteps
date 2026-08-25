@@ -43,6 +43,11 @@
             <div class="stage-badge" id="stage-badge">{{ guidance.label }} stage</div>
         </div>
 
+        <p style="text-align:center; margin: 4px 0 16px;">
+            <a href="{{ url_for('photo_weeks_view') }}" style="font-size:0.8rem; color:#4a90d9; text-decoration:none; margin-right:14px;">📸 Ethan's First 12 Weeks</a>
+            <a href="{{ url_for('photo_year_view') }}" style="font-size:0.8rem; color:#4a90d9; text-decoration:none;">📸 Ethan's First Year</a>
+        </p>
+
         <div class="slider-bar">
             <button type="button" id="prev-btn" onclick="moveSlider(-1)">◀ Prev</button>
             <div class="slider-label" id="slider-label">{{ guidance.label }}</div>
