@@ -314,9 +314,9 @@ table.week a {
 }
 
 .today-label {
-    color: #2c5f8a;
-    background: #eaf4ff;
-    border: 1px solid #bcdcf7;
+    color: #666;
+    background: #eeeeee;
+    border: 1px solid #ccc;
     font-weight: 700;
     font-size: 0.85rem;
     padding: 4px 12px;

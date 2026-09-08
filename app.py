@@ -974,88 +974,6 @@ def growth_view():
     )
 
 
-@app.route("/photo-year")
-def photo_year_view():
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM monthly_photos").fetchall()
-    conn.close()
-
-    photos_by_month = {r["month_number"]: r["filename"] for r in rows}
-    months = [{"number": i, "filename": photos_by_month.get(i)} for i in range(1, 13)]
-    filled_count = len(photos_by_month)
-
-    return render_template(
-        "photo_year.html",
-        months=months,
-        filled_count=filled_count,
-        themes=PHOTO_YEAR_THEMES,
-        active="growth",
-    )
-
-
-@app.route("/photo-year/upload", methods=["POST"])
-def photo_year_upload():
-    try:
-        month_number = int(request.form.get("month_number"))
-    except (TypeError, ValueError):
-        return redirect(url_for("photo_year_view"))
-
-    if month_number < 1 or month_number > 12:
-        return redirect(url_for("photo_year_view"))
-
-    file = request.files.get("photo")
-    if not file or file.filename == "":
-        return redirect(url_for("photo_year_view"))
-
-    allowed_extensions = {".jpg", ".jpeg", ".png", ".webp"}
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in allowed_extensions:
-        return redirect(url_for("photo_year_view"))
-
-    os.makedirs(PHOTO_UPLOAD_DIR, exist_ok=True)
-
-    # Remove any previous photo for this month before saving the new one
-    conn = get_db()
-    existing = conn.execute(
-        "SELECT filename FROM monthly_photos WHERE month_number = ?", (month_number,)
-    ).fetchone()
-    if existing:
-        old_path = os.path.join(PHOTO_UPLOAD_DIR, existing["filename"])
-        if os.path.exists(old_path):
-            os.remove(old_path)
-
-    safe_filename = f"month_{month_number:02d}{ext}"
-    file.save(os.path.join(PHOTO_UPLOAD_DIR, safe_filename))
-
-    conn.execute(
-        """
-        INSERT INTO monthly_photos (month_number, filename, uploaded_at) VALUES (?, ?, ?)
-        ON CONFLICT(month_number) DO UPDATE SET filename = excluded.filename, uploaded_at = excluded.uploaded_at
-        """,
-        (month_number, safe_filename, datetime.now().isoformat()),
-    )
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for("photo_year_view"))
-
-
-@app.route("/photo-year/delete/<int:month_number>", methods=["POST"])
-def photo_year_delete(month_number):
-    conn = get_db()
-    row = conn.execute(
-        "SELECT filename FROM monthly_photos WHERE month_number = ?", (month_number,)
-    ).fetchone()
-    if row:
-        path = os.path.join(PHOTO_UPLOAD_DIR, row["filename"])
-        if os.path.exists(path):
-            os.remove(path)
-        conn.execute("DELETE FROM monthly_photos WHERE month_number = ?", (month_number,))
-        conn.commit()
-    conn.close()
-    return redirect(url_for("photo_year_view"))
-
-
 def get_photo_year_font(size, bold=False):
     """Load a nice font if available (Linux paths for the Pi, Windows paths for local
     testing), otherwise fall back to PIL's built-in font at the requested size so this
@@ -1177,27 +1095,6 @@ def build_photo_collage_pdf(items_data, theme_key, title_text, label_prefix, upl
     canvas.save(buffer, "PDF", resolution=float(dpi))
     buffer.seek(0)
     return buffer
-
-
-@app.route("/photo-year/generate")
-def photo_year_generate():
-    theme_key = request.args.get("theme", "soft_blue")
-
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM monthly_photos").fetchall()
-    conn.close()
-
-    photos_by_month = {r["month_number"]: r["filename"] for r in rows}
-    months_data = [{"number": i, "filename": photos_by_month.get(i)} for i in range(1, 13)]
-
-    pdf_buffer = build_photo_collage_pdf(months_data, theme_key, "Ethan's First Year", "Month", PHOTO_UPLOAD_DIR)
-
-    return send_file(
-        pdf_buffer,
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name="ethans-first-year.pdf",
-    )
 
 
 @app.route("/photo-weeks")
