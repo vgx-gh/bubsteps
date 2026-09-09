@@ -33,8 +33,8 @@ FEED_TYPES = ("breast", "express", "formula")
 # Accepted date formats for CSV import, tried in order
 DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y", "%d-%m-%Y", "%Y/%m/%d"]
 
-# Ethan's birth date - used to calculate current age for the guidance page
-BABY_BIRTH_DATE = date(2026, 7, 3)
+# Baby's name and birth date are configurable via the /settings page (see get_settings()
+# below) instead of being hardcoded here.
 
 # General age-based guidance, roughly following common CDC/AAP-style newborn guidance.
 # Each entry applies from its "from_days" onward, in ascending order.
@@ -144,6 +144,53 @@ def get_db():
     return conn
 
 
+# Seed defaults - used only until someone saves real values on the /settings page,
+# so a freshly-cloned copy of the app behaves sensibly out of the box.
+DEFAULT_BABY_NAME = "Baby"
+DEFAULT_BIRTH_DATE = date(2026, 7, 3)
+
+
+def get_settings():
+    """Current baby_name (str) and birth_date (date object), read from the settings
+    table. Falls back to the defaults above if no settings row has been saved yet."""
+    conn = get_db()
+    row = conn.execute("SELECT * FROM settings WHERE id = 1").fetchone()
+    conn.close()
+    if row is None:
+        return {"baby_name": DEFAULT_BABY_NAME, "birth_date": DEFAULT_BIRTH_DATE}
+    return {
+        "baby_name": row["baby_name"],
+        "birth_date": datetime.strptime(row["birth_date"], "%Y-%m-%d").date(),
+    }
+
+
+def save_settings(baby_name, birth_date_str):
+    """birth_date_str should be an ISO 'YYYY-MM-DD' string, e.g. from an
+    <input type="date"> form field."""
+    conn = get_db()
+    conn.execute(
+        """
+        INSERT INTO settings (id, baby_name, birth_date) VALUES (1, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET baby_name = excluded.baby_name, birth_date = excluded.birth_date
+        """,
+        (baby_name, birth_date_str),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_birth_date():
+    """Convenience accessor for the common case where only the date is needed."""
+    return get_settings()["birth_date"]
+
+
+@app.context_processor
+def inject_settings():
+    """Makes baby_name available in every template automatically, so templates don't
+    each need it passed in explicitly via render_template()."""
+    return {"baby_name": get_settings()["baby_name"]}
+
+
 def init_db():
     conn = get_db()
     conn.execute(
@@ -194,6 +241,15 @@ def init_db():
             week_number INTEGER PRIMARY KEY,
             filename TEXT NOT NULL,
             uploaded_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            baby_name TEXT NOT NULL,
+            birth_date TEXT NOT NULL
         )
         """
     )
@@ -410,12 +466,12 @@ def day_view():
 
 @app.route("/week")
 def week_view():
-    # anchor date - defaults to today, week runs Fri-Thu containing that date
-    # (Ethan was born on a Friday, so weeks start there)
+    # anchor date - defaults to today. Each 7-day week starts on baby's birth weekday,
+    # so "Week 0" always begins the day baby was born (whatever day of the week that was)
     anchor_str = request.args.get("entry_date") or date.today().isoformat()
     anchor = datetime.strptime(anchor_str, "%Y-%m-%d").date()
-    days_since_friday = (anchor.weekday() - 4) % 7  # Friday = weekday() 4
-    week_start = anchor - timedelta(days=days_since_friday)
+    days_since_anchor_weekday = (anchor.weekday() - get_birth_date().weekday()) % 7
+    week_start = anchor - timedelta(days=days_since_anchor_weekday)
     week_end = week_start + timedelta(days=6)  # Thursday
 
     conn = get_db()
@@ -440,8 +496,8 @@ def week_view():
     next_week_anchor = (week_start + timedelta(days=7)).isoformat()
     is_current_week = (week_start <= date.today() <= week_end)
 
-    # Ethan's birth date is itself a Friday, so it's the start of his "Week 0"
-    week_number = (week_start - BABY_BIRTH_DATE).days // 7
+    # Baby's birth date is itself the start of "Week 0"
+    week_number = (week_start - get_birth_date()).days // 7
     is_birth_week = (week_number <= 0)
     last_fed = get_last_fed()
 
@@ -457,7 +513,7 @@ def week_view():
         is_current_week=is_current_week,
         week_number=week_number,
         is_birth_week=is_birth_week,
-        birth_week_anchor=BABY_BIRTH_DATE.isoformat(),
+        birth_week_anchor=get_birth_date().isoformat(),
         last_fed=last_fed,
         today=date.today().isoformat(),
         active="week",
@@ -742,10 +798,10 @@ def journal_view():
 
     anchor_str = request.args.get("entry_date") or date.today().isoformat()
     anchor = datetime.strptime(anchor_str, "%Y-%m-%d").date()
-    days_since_friday = (anchor.weekday() - 4) % 7
-    week_start = anchor - timedelta(days=days_since_friday)
+    days_since_anchor_weekday = (anchor.weekday() - get_birth_date().weekday()) % 7
+    week_start = anchor - timedelta(days=days_since_anchor_weekday)
     week_end = week_start + timedelta(days=6)
-    week_number = (week_start - BABY_BIRTH_DATE).days // 7
+    week_number = (week_start - get_birth_date()).days // 7
     is_birth_week = (week_number <= 0)
 
     conn = get_db()
@@ -770,7 +826,7 @@ def journal_view():
     for i in range(7):
         d = week_start + timedelta(days=i)
         d_str = d.isoformat()
-        day_number = (d - BABY_BIRTH_DATE).days
+        day_number = (d - get_birth_date()).days
         days.append({
             "date": d_str,
             "label": d.strftime("%a %d %b"),
@@ -789,7 +845,7 @@ def journal_view():
         week_end=week_end.isoformat(),
         week_number=week_number,
         is_birth_week=is_birth_week,
-        birth_week_anchor=BABY_BIRTH_DATE.isoformat(),
+        birth_week_anchor=get_birth_date().isoformat(),
         days=days,
         anchor=anchor_str,
         prev_week_anchor=prev_week_anchor,
@@ -916,8 +972,8 @@ def journal_report():
 
     def week_start_for(d_str):
         d = datetime.strptime(d_str, "%Y-%m-%d").date()
-        days_since_friday = (d.weekday() - 4) % 7
-        return d - timedelta(days=days_since_friday)
+        days_since_anchor_weekday = (d.weekday() - get_birth_date().weekday()) % 7
+        return d - timedelta(days=days_since_anchor_weekday)
 
     weeks = {}
     for d_str in by_date:
@@ -928,12 +984,12 @@ def journal_report():
     for ws in sorted(weeks.keys(), reverse=True):
         week_start_date = datetime.strptime(ws, "%Y-%m-%d").date()
         week_end_date = week_start_date + timedelta(days=6)
-        week_number = (week_start_date - BABY_BIRTH_DATE).days // 7
+        week_number = (week_start_date - get_birth_date()).days // 7
 
         day_list = []
         for d_str in sorted(weeks[ws], reverse=True):
             d = datetime.strptime(d_str, "%Y-%m-%d").date()
-            day_number = (d - BABY_BIRTH_DATE).days
+            day_number = (d - get_birth_date()).days
             day_list.append({"date": d_str, "day_number": day_number, "entries": by_date[d_str]})
 
         week_summaries.append({
@@ -953,7 +1009,7 @@ def journal_report():
 @app.route("/growth")
 def growth_view():
     today = date.today()
-    age_days = (today - BABY_BIRTH_DATE).days
+    age_days = (today - get_birth_date()).days
     weeks, days = divmod(age_days, 7)
     months = round(age_days / 30.44, 1)
 
@@ -969,7 +1025,7 @@ def growth_view():
         guidance=guidance,
         all_stages=AGE_GUIDANCE,
         current_index=current_index,
-        birth_date=BABY_BIRTH_DATE.isoformat(),
+        birth_date=get_birth_date().isoformat(),
         active="growth",
     )
 
@@ -997,7 +1053,7 @@ def get_photo_year_font(size, bold=False):
 
 def build_photo_collage_pdf(items_data, theme_key, title_text, label_prefix, upload_dir):
     """Compose a print-ready A3 (300 DPI) collage of 12 photos using Pillow.
-    Shared by both the 'Ethan's First Year' (months) and 'Ethan's First 12 Weeks' pages."""
+    Shared by both the year-view (months) and 12-week photo collage pages."""
     theme = PHOTO_YEAR_THEMES.get(theme_key, PHOTO_YEAR_THEMES["soft_blue"])
 
     dpi = 300
@@ -1192,7 +1248,9 @@ def photo_weeks_generate():
     weeks_data = [{"number": i, "filename": photos_by_week.get(i)} for i in range(1, 13)]
 
     weeks_upload_dir = os.path.join("static", "uploads", "photo_weeks")
-    pdf_buffer = build_photo_collage_pdf(weeks_data, theme_key, "Ethan's First 12 Weeks", "Week", weeks_upload_dir)
+    pdf_buffer = build_photo_collage_pdf(
+        weeks_data, theme_key, f"{get_settings()['baby_name']}'s First 12 Weeks", "Week", weeks_upload_dir
+    )
 
     return send_file(
         pdf_buffer,
@@ -1226,8 +1284,8 @@ def report_view():
     # then group dates into Fri-Thu weeks, matching the Weekly View's week boundaries
     def week_start_for(d_str):
         d = datetime.strptime(d_str, "%Y-%m-%d").date()
-        days_since_friday = (d.weekday() - 4) % 7
-        return d - timedelta(days=days_since_friday)
+        days_since_anchor_weekday = (d.weekday() - get_birth_date().weekday()) % 7
+        return d - timedelta(days=days_since_anchor_weekday)
 
     weeks = {}  # week_start_iso -> list of dates
     for d_str in by_date:
@@ -1238,7 +1296,7 @@ def report_view():
     for ws in sorted(weeks.keys(), reverse=True):  # latest week first
         week_start_date = datetime.strptime(ws, "%Y-%m-%d").date()
         week_end_date = week_start_date + timedelta(days=6)
-        week_number = (week_start_date - BABY_BIRTH_DATE).days // 7
+        week_number = (week_start_date - get_birth_date()).days // 7
 
         day_summaries = []
         for d_str in sorted(weeks[ws], reverse=True):  # latest day first within the week
@@ -1463,7 +1521,26 @@ def journal_export_csv():
     return Response(
         output.getvalue(),
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=baby-ethan-journal.csv"},
+        headers={"Content-Disposition": "attachment; filename=baby-tracker-journal.csv"},
+    )
+
+
+@app.route("/settings", methods=["GET", "POST"])
+def settings_view():
+    saved = False
+    if request.method == "POST":
+        baby_name = (request.form.get("baby_name") or "").strip() or DEFAULT_BABY_NAME
+        birth_date_str = request.form.get("birth_date") or date.today().isoformat()
+        save_settings(baby_name, birth_date_str)
+        saved = True
+
+    settings = get_settings()
+    return render_template(
+        "settings.html",
+        baby_name_value=settings["baby_name"],
+        birth_date_value=settings["birth_date"].isoformat(),
+        saved=saved,
+        active="settings",
     )
 
 

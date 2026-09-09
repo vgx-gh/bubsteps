@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ethan's First 12 Weeks - Baby Ethan's Tracker</title>
+    <title>{{ baby_name }}'s First 12 Weeks - Baby {{ baby_name }}'s Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .photo-year-intro { text-align:center; color:#666; font-size:0.85rem; margin-bottom:16px; }
@@ -25,10 +25,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby Ethan's Tracker</h1>
+        <h1>👶 Baby {{ baby_name }}'s Tracker</h1>
         {% include "_nav.html" %}
 
-        <h2 style="text-align:center;">📸 Ethan's First 12 Weeks</h2>
+        <h2 style="text-align:center;">📸 {{ baby_name }}'s First 12 Weeks</h2>
         <p class="photo-year-intro">Upload one photo per week, then generate a print-ready A3 keepsake collage.</p>
         <div class="photo-progress">{{ filled_count }} / 12 weeks uploaded</div>
 

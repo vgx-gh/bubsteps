@@ -11,4 +11,5 @@
     <a href="{{ url_for('journal_report') }}">📓 Print Journal</a>
     <a href="{{ url_for('weight_report') }}">⚖️ Print Weight</a>
     <a href="{{ url_for('import_csv') }}">⬆️ Import Data</a>
+    <a href="{{ url_for('settings_view') }}" {% if active=='settings' %}class="active"{% endif %}>⚙️ Settings</a>
 </div>

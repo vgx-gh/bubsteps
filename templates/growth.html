@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Growth - Baby Ethan's Tracker</title>
+    <title>Growth - Baby {{ baby_name }}'s Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .growth-hero {
@@ -34,7 +34,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby Ethan's Tracker</h1>
+        <h1>👶 Baby {{ baby_name }}'s Tracker</h1>
         {% include "_nav.html" %}
 
         <div class="growth-hero">
@@ -44,7 +44,7 @@
         </div>
 
         <p style="text-align:center; margin: 4px 0 16px;">
-            <a href="{{ url_for('photo_weeks_view') }}" style="font-size:0.8rem; color:#4a90d9; text-decoration:none;">📸 Ethan's First 12 Weeks</a>
+            <a href="{{ url_for('photo_weeks_view') }}" style="font-size:0.8rem; color:#4a90d9; text-decoration:none;">📸 {{ baby_name }}'s First 12 Weeks</a>
         </p>
 
         <div class="slider-bar">
@@ -52,8 +52,8 @@
             <div class="slider-label" id="slider-label">{{ guidance.label }}</div>
             <button type="button" id="next-btn" onclick="moveSlider(1)">Next ▶</button>
         </div>
-        <div id="viewing-note" class="viewing-note" style="display:none;">Previewing a different stage — not Ethan's current age</div>
-        <div id="slider-reset" class="slider-reset" style="display:none;"><a href="javascript:void(0)" onclick="resetSlider()">↺ Reset to Ethan's current age</a></div>
+        <div id="viewing-note" class="viewing-note" style="display:none;">Previewing a different stage — not {{ baby_name }}'s current age</div>
+        <div id="slider-reset" class="slider-reset" style="display:none;"><a href="javascript:void(0)" onclick="resetSlider()">↺ Reset to {{ baby_name }}'s current age</a></div>
 
         <div class="guidance-grid">
             <div class="guidance-card">

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Journal - Baby Ethan's Tracker</title>
+    <title>Journal - Baby {{ baby_name }}'s Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .journal-day { background:#fff; border-radius:10px; padding:12px 14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
@@ -26,7 +26,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby Ethan's Tracker</h1>
+        <h1>👶 Baby {{ baby_name }}'s Tracker</h1>
         {% include "_nav.html" %}
 
         <form method="GET" class="date-picker">
@@ -54,7 +54,7 @@
             <a href="{{ url_for('journal_view', entry_date=next_week_anchor) }}">Next Week ▶</a>
         </div>
 
-        <div class="last-fed-banner">Week {{ week_number }} of Ethan's life</div>
+        <div class="last-fed-banner">Week {{ week_number }} of {{ baby_name }}'s life</div>
         <h2>Week of {{ week_start }} to {{ week_end }}</h2>
 
         <h2>Day by Day</h2>

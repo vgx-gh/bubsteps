@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Report - Baby Ethan's Tracker</title>
+    <title>Report - Baby {{ baby_name }}'s Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         @media print {
@@ -29,18 +29,18 @@
 <body>
     <div class="container">
         <div class="no-print">
-            <h1>👶 Baby Ethan's Tracker</h1>
+            <h1>👶 Baby {{ baby_name }}'s Tracker</h1>
             {% include "_nav.html" %}
             <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
             <a class="export-link" href="{{ url_for('export_csv') }}">⬇ Export all history (CSV)</a>
         </div>
 
-        <h1 style="text-align:left;">Baby Ethan — Summary Report</h1>
+        <h1 style="text-align:left;">Baby {{ baby_name }} — Summary Report</h1>
         <p style="color:#888; font-size:0.85rem;">Generated {{ generated_at }} &middot; latest week first, one week per printed page</p>
 
         {% for w in week_summaries %}
         <div class="report-week">
-            <div class="report-week-title">Week {{ w.week_number }} of Ethan's life</div>
+            <div class="report-week-title">Week {{ w.week_number }} of {{ baby_name }}'s life</div>
             <div class="report-week-dates">{{ w.week_start }} to {{ w.week_end }}</div>
 
             {% for d in w.days %}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Baby {{ baby_name }}'s Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby {{ baby_name }}'s Tracker</h1>
+        {% include "_nav.html" %}
+
+        <h2>Settings</h2>
+
+        {% if saved %}
+        <p style="color:#2e7d32; font-weight:600;">✅ Saved.</p>
+        {% endif %}
+
+        <form method="POST" class="log-form">
+            <label for="baby_name">Baby's name</label>
+            <input type="text" id="baby_name" name="baby_name" value="{{ baby_name_value }}" required>
+
+            <label for="birth_date">Birth date</label>
+            <input type="date" id="birth_date" name="birth_date" value="{{ birth_date_value }}" required>
+
+            <button type="submit">Save Settings</button>
+        </form>
+
+        <p style="font-size:0.8rem; color:#777; margin-top:16px;">
+            The birth date is also used to calculate age, weekly views, and "Week 0" throughout the app —
+            changing it here updates all of those automatically.
+        </p>
+    </div>
+</body>
+</html>
