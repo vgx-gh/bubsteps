@@ -2,6 +2,7 @@ import sqlite3
 import csv
 import io
 import os
+import secrets
 from functools import wraps
 from datetime import datetime, date, timedelta
 from flask import Flask, render_template, request, redirect, url_for, Response, send_file, session
@@ -9,10 +10,15 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
-# Needed to sign the login session cookie. This is a fixed value for local dev/testing -
-# before this app is ever deployed somewhere public, move this to an environment variable
-# (e.g. os.environ["SECRET_KEY"]) instead of leaving it in the source code.
-app.secret_key = "dev-only-temporary-secret-change-before-deploying-6f2a1c9e"
+# Needed to sign the login session cookie. Reads SECRET_KEY from the environment so the
+# real value never lives in source code (and never ends up in git, which matters since
+# this repo is public). Set SECRET_KEY on whatever host runs this app for real - e.g. in
+# PythonAnywhere's web app config - and keep it the same across restarts, otherwise every
+# restart invalidates everyone's login session.
+# For everyday local testing on your own machine, no need to set anything: falls back to
+# a freshly-generated random key each time you run the app, which is fine for local use
+# (it just means logging back in again if you restart the server, nothing more).
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 
 # Personal tracking data (entries, journal, weight, settings) now lives in its own
 # per-user file under DATA_DIR - never in one shared database. AUTH_DB_PATH holds only
@@ -1493,5 +1499,12 @@ def settings_view():
 
 if __name__ == "__main__":
     init_db()
+    # Debug mode (auto-reload + the interactive in-browser debugger) is OFF by default -
+    # safe wherever this ends up running. Turn it on for your own local testing by setting
+    # FLASK_DEBUG=1 before running, e.g. in PowerShell:
+    #   $env:FLASK_DEBUG="1"; python app.py
+    # Never set this on anything reachable by anyone but you - the debugger it enables
+    # lets whoever's looking at an error page run code on the server.
+    debug_mode = os.environ.get("FLASK_DEBUG") == "1"
     # host="0.0.0.0" makes it reachable from other devices on the home network
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=debug_mode)
