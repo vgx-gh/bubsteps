@@ -172,7 +172,7 @@ def get_db():
 # Seed defaults - used only until someone saves real values on the /settings page,
 # so a freshly-cloned copy of the app behaves sensibly out of the box.
 DEFAULT_BABY_NAME = "Baby"
-DEFAULT_BIRTH_DATE = date(2026, 7, 3)
+DEFAULT_BIRTH_DATE = date(2024, 1, 1)
 
 
 def get_settings():
