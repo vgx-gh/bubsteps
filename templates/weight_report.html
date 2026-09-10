@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weight Report - Baby {{ baby_name }}'s Tracker</title>
+    <title>Weight Report - {{ baby_name }}'s Steps</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         @media print {
@@ -20,7 +20,7 @@
 <body>
     <div class="container">
         <div class="no-print">
-            <h1>👶 Baby {{ baby_name }}'s Tracker</h1>
+            <h1>👶 {{ baby_name }}'s Steps</h1>
             {% include "_nav.html" %}
             <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
         </div>

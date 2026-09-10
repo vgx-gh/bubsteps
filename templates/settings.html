@@ -3,18 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings - Baby {{ baby_name }}'s Tracker</title>
+    <title>Settings - {{ baby_name }}'s Steps</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Tracker</h1>
+        <h1>👶 {{ baby_name }}'s Steps</h1>
         {% include "_nav.html" %}
 
         <h2>Settings</h2>
 
+        {% if current_user %}
+        <div class="user-bar">
+            <span>👤 {{ current_user.name }}</span>
+            <form method="POST" action="{{ url_for('logout_view') }}">
+                <button type="submit">Log Out</button>
+            </form>
+        </div>
+        {% endif %}
+
         {% if saved %}
         <p style="color:#2e7d32; font-weight:600;">✅ Saved.</p>
+        {% endif %}
+
+        {% if error %}
+        <p style="color:#c0392b; font-weight:600;">⚠️ {{ error }}</p>
         {% endif %}
 
         <form method="POST" class="log-form">
@@ -22,7 +35,8 @@
             <input type="text" id="baby_name" name="baby_name" value="{{ baby_name_value }}" required>
 
             <label for="birth_date">Birth date</label>
-            <input type="date" id="birth_date" name="birth_date" value="{{ birth_date_value }}" required>
+            <input type="date" id="birth_date" name="birth_date" value="{{ birth_date_value }}"
+                   min="{{ min_birth_date }}" max="{{ max_birth_date }}" required>
 
             <button type="submit">Save Settings</button>
         </form>

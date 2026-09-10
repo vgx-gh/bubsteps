@@ -2,20 +2,23 @@ import sqlite3
 import csv
 import io
 import os
+from functools import wraps
 from datetime import datetime, date, timedelta
-from flask import Flask, render_template, request, redirect, url_for, Response, send_file
-from PIL import Image, ImageDraw, ImageFont
+from flask import Flask, render_template, request, redirect, url_for, Response, send_file, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-DB_PATH = "tracker.db"
-PHOTO_UPLOAD_DIR = os.path.join("static", "uploads", "photo_year")
 
-# Background themes for the Photo Year A3 print - each just changes the accent colors
-PHOTO_YEAR_THEMES = {
-    "soft_blue": {"label": "Soft Blue", "bg": (234, 244, 255), "accent": (74, 144, 217), "text": (44, 95, 138)},
-    "warm_peach": {"label": "Warm Peach", "bg": (255, 241, 230), "accent": (224, 139, 92), "text": (150, 82, 40)},
-    "mint_pastel": {"label": "Mint Pastel", "bg": (232, 248, 240), "accent": (85, 172, 132), "text": (40, 110, 78)},
-}
+# Needed to sign the login session cookie. This is a fixed value for local dev/testing -
+# before this app is ever deployed somewhere public, move this to an environment variable
+# (e.g. os.environ["SECRET_KEY"]) instead of leaving it in the source code.
+app.secret_key = "dev-only-temporary-secret-change-before-deploying-6f2a1c9e"
+
+# Personal tracking data (entries, journal, weight, settings) now lives in its own
+# per-user file under DATA_DIR - never in one shared database. AUTH_DB_PATH holds only
+# the users table (who can log in), completely separate from anyone's tracking data.
+AUTH_DB_PATH = "auth.db"
+DATA_DIR = "data"
 
 # Event types and what unit each one is measured in
 EVENT_TYPES = {
@@ -138,8 +141,24 @@ QUICK_LOG_PRESETS = [
 ]
 
 
+def get_auth_db():
+    """Connects to the shared auth database - this ever only holds the users table.
+    Nobody's tracking data lives here."""
+    conn = sqlite3.connect(AUTH_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    """Connects to the CURRENTLY LOGGED-IN user's own personal tracker database.
+    Every family's entries/journal/weight/settings live in their own file under
+    DATA_DIR - never in one shared database. See ensure_user_db_ready() below,
+    which creates this file's tables automatically before each request."""
+    user = current_user()
+    if user is None:
+        raise RuntimeError("get_db() called with nobody logged in")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    conn = sqlite3.connect(os.path.join(DATA_DIR, f"tracker_{user['id']}.db"))
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -151,8 +170,11 @@ DEFAULT_BIRTH_DATE = date(2026, 7, 3)
 
 
 def get_settings():
-    """Current baby_name (str) and birth_date (date object), read from the settings
-    table. Falls back to the defaults above if no settings row has been saved yet."""
+    """Current baby_name (str) and birth_date (date object), read from the logged-in
+    user's own settings table. Falls back to the defaults above if nobody's logged
+    in (e.g. rendering the login/signup pages) or no settings row has been saved yet."""
+    if current_user() is None:
+        return {"baby_name": DEFAULT_BABY_NAME, "birth_date": DEFAULT_BIRTH_DATE}
     conn = get_db()
     row = conn.execute("SELECT * FROM settings WHERE id = 1").fetchone()
     conn.close()
@@ -184,15 +206,43 @@ def get_birth_date():
     return get_settings()["birth_date"]
 
 
+def current_user():
+    """The logged-in user's row (as a dict-like sqlite3.Row), or None if nobody's
+    logged in / the session refers to a user that no longer exists. Always reads
+    from the shared auth database, never from a per-user tracker file."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    conn = get_auth_db()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return user
+
+
+def login_required(view):
+    """Route decorator - redirects to /login if nobody's logged in, then sends them
+    back to the page they wanted once they are. Applied to every route except
+    signup/login/logout."""
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+        if current_user() is None:
+            return redirect(url_for("login_view", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped_view
+
+
 @app.context_processor
 def inject_settings():
-    """Makes baby_name available in every template automatically, so templates don't
-    each need it passed in explicitly via render_template()."""
-    return {"baby_name": get_settings()["baby_name"]}
+    """Makes baby_name and current_user available in every template automatically,
+    so templates don't each need them passed in explicitly via render_template()."""
+    return {"baby_name": get_settings()["baby_name"], "current_user": current_user()}
 
 
-def init_db():
-    conn = get_db()
+def init_user_tables(conn):
+    """Creates every personal-tracking table in a per-user database connection, if
+    they don't already exist yet. Runs automatically before each authenticated
+    request (see ensure_user_db_ready below), so a brand new account's file is
+    ready to use from its very first request - nothing extra to set up on signup."""
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS entries (
@@ -237,15 +287,6 @@ def init_db():
     )
     conn.execute(
         """
-        CREATE TABLE IF NOT EXISTS weekly_photos (
-            week_number INTEGER PRIMARY KEY,
-            filename TEXT NOT NULL,
-            uploaded_at TEXT NOT NULL
-        )
-        """
-    )
-    conn.execute(
-        """
         CREATE TABLE IF NOT EXISTS settings (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             baby_name TEXT NOT NULL,
@@ -282,10 +323,41 @@ def init_db():
         conn.execute("ALTER TABLE journal_entries ADD COLUMN tags TEXT")
         conn.commit()
 
+
+@app.before_request
+def ensure_user_db_ready():
+    """Makes sure the logged-in user's own tracker file (and its tables) exist
+    before any route touches it. Runs on every request, but CREATE TABLE IF NOT
+    EXISTS is cheap, so for a returning user this is effectively a no-op."""
+    user = current_user()
+    if user is not None:
+        conn = get_db()
+        init_user_tables(conn)
+        conn.close()
+
+
+def init_db():
+    """Startup-only: creates the shared auth database (just the users table). Each
+    user's own personal tracker database is created lazily on their first request
+    instead - see ensure_user_db_ready() above."""
+    conn = get_auth_db()
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.commit()
     conn.close()
 
 
 @app.route("/", methods=["GET", "POST"])
+@login_required
 def home():
     if request.method == "POST":
         entry_date = request.form.get("entry_date") or date.today().isoformat()
@@ -338,6 +410,7 @@ def home():
 
 
 @app.route("/quick-log", methods=["POST"])
+@login_required
 def quick_log():
     """One-tap logging using a preset - always logs at the current date/time."""
     etype = request.form.get("type")
@@ -432,6 +505,7 @@ def get_last_fed():
 
 
 @app.route("/day")
+@login_required
 def day_view():
     entry_date = request.args.get("entry_date") or date.today().isoformat()
 
@@ -465,6 +539,7 @@ def day_view():
 
 
 @app.route("/week")
+@login_required
 def week_view():
     # anchor date - defaults to today. Each 7-day week starts on baby's birth weekday,
     # so "Week 0" always begins the day baby was born (whatever day of the week that was)
@@ -521,6 +596,7 @@ def week_view():
 
 
 @app.route("/weight")
+@login_required
 def weight_view():
     conn = get_db()
     rows = conn.execute(
@@ -552,6 +628,7 @@ def weight_view():
 
 
 @app.route("/weight/report")
+@login_required
 def weight_report():
     conn = get_db()
     rows = conn.execute(
@@ -582,6 +659,7 @@ def weight_report():
 
 
 @app.route("/weight/add", methods=["POST"])
+@login_required
 def weight_add():
     entry_date = request.form.get("entry_date") or date.today().isoformat()
     raw_value = request.form.get("value")
@@ -602,6 +680,7 @@ def weight_add():
 
 
 @app.route("/weight/edit/<int:entry_id>", methods=["GET", "POST"])
+@login_required
 def weight_edit(entry_id):
     conn = get_db()
 
@@ -630,6 +709,7 @@ def weight_edit(entry_id):
 
 
 @app.route("/weight/delete/<int:entry_id>", methods=["POST"])
+@login_required
 def weight_delete(entry_id):
     conn = get_db()
     conn.execute("DELETE FROM weight_entries WHERE id = ?", (entry_id,))
@@ -638,16 +718,8 @@ def weight_delete(entry_id):
     return redirect(url_for("weight_view"))
 
 
-    return render_template(
-        "import.html",
-        journal_message=message, journal_error=error, journal_row_errors=row_errors,
-        entries_message=None, entries_error=None, entries_row_errors=[],
-        weight_message=None, weight_error=None, weight_row_errors=[],
-        event_types=EVENT_TYPES, active="import",
-    )
-
-
 @app.route("/weight/import", methods=["POST"])
+@login_required
 def weight_import():
     message = None
     error = None
@@ -780,6 +852,7 @@ def build_weight_chart_svg(points):
 
 
 @app.route("/journal", methods=["GET", "POST"])
+@login_required
 def journal_view():
     if request.method == "POST":
         entry_date = request.form.get("entry_date") or date.today().isoformat()
@@ -858,6 +931,7 @@ def journal_view():
 
 
 @app.route("/journal/edit/<int:entry_id>", methods=["GET", "POST"])
+@login_required
 def journal_edit(entry_id):
     conn = get_db()
 
@@ -882,6 +956,7 @@ def journal_edit(entry_id):
 
 
 @app.route("/journal/delete/<int:entry_id>", methods=["POST"])
+@login_required
 def journal_delete(entry_id):
     entry_date = request.form.get("entry_date") or date.today().isoformat()
     conn = get_db()
@@ -892,6 +967,7 @@ def journal_delete(entry_id):
 
 
 @app.route("/journal/import", methods=["GET", "POST"])
+@login_required
 def journal_import():
     message = None
     error = None
@@ -959,6 +1035,7 @@ def journal_import():
 
 
 @app.route("/journal/report")
+@login_required
 def journal_report():
     conn = get_db()
     rows = conn.execute(
@@ -1007,6 +1084,7 @@ def journal_report():
 
 
 @app.route("/growth")
+@login_required
 def growth_view():
     today = date.today()
     age_days = (today - get_birth_date()).days
@@ -1030,237 +1108,8 @@ def growth_view():
     )
 
 
-def get_photo_year_font(size, bold=False):
-    """Load a nice font if available (Linux paths for the Pi, Windows paths for local
-    testing), otherwise fall back to PIL's built-in font at the requested size so this
-    never crashes AND still scales correctly even without any font files installed."""
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        "C:\\Windows\\Fonts\\arialbd.ttf" if bold else "C:\\Windows\\Fonts\\arial.ttf",
-        "C:\\Windows\\Fonts\\segoeuib.ttf" if bold else "C:\\Windows\\Fonts\\segoeui.ttf",
-    ]
-    for path in candidates:
-        if os.path.exists(path):
-            return ImageFont.truetype(path, size)
-    # Nothing found (rare) - PIL's built-in default font DOES accept a size argument
-    # in modern Pillow, so this is a genuine fallback, not a silent "always tiny" trap
-    try:
-        return ImageFont.load_default(size=size)
-    except TypeError:
-        return ImageFont.load_default()
-
-
-def build_photo_collage_pdf(items_data, theme_key, title_text, label_prefix, upload_dir):
-    """Compose a print-ready A3 (300 DPI) collage of 12 photos using Pillow.
-    Shared by both the year-view (months) and 12-week photo collage pages."""
-    theme = PHOTO_YEAR_THEMES.get(theme_key, PHOTO_YEAR_THEMES["soft_blue"])
-
-    dpi = 300
-    page_w = int(297 / 25.4 * dpi)   # A3 width in px at 300 DPI (portrait)
-    page_h = int(420 / 25.4 * dpi)   # A3 height in px at 300 DPI
-
-    canvas = Image.new("RGB", (page_w, page_h), theme["bg"])
-    draw = ImageDraw.Draw(canvas)
-
-    # Title - auto-shrinks to fit the page width so it can never overflow,
-    # regardless of how long the title text is
-    title_font = get_photo_year_font(280, bold=True)
-    max_title_w = page_w - 300  # keep clear of both edges
-    while True:
-        bbox = draw.textbbox((0, 0), title_text, font=title_font)
-        title_w = bbox[2] - bbox[0]
-        if title_w <= max_title_w or title_font.size <= 60:
-            break
-        title_font = get_photo_year_font(title_font.size - 10, bold=True)
-    draw.text(((page_w - title_w) / 2, 90), title_text, font=title_font, fill=theme["text"])
-
-    # Grid: 3 columns x 4 rows
-    cols, rows = 3, 4
-    margin = 150
-    top_offset = 480
-    label_height = 110
-    grid_w = page_w - margin * 2
-    grid_h = page_h - top_offset - margin
-    cell_w = grid_w // cols
-    cell_h = (grid_h - label_height * rows) // rows
-
-    label_font = get_photo_year_font(130, bold=True)
-
-    for i, item in enumerate(items_data):
-        col = i % cols
-        row = i // cols
-        cell_x = margin + col * cell_w
-        cell_y = top_offset + row * (cell_h + label_height)
-
-        photo_area_w = cell_w - 40
-        photo_area_h = cell_h - 40
-        photo_x = cell_x + 20
-        photo_y = cell_y + 20
-
-        # Draw a soft card background behind each photo slot
-        draw.rectangle(
-            [cell_x + 10, cell_y + 10, cell_x + cell_w - 10, cell_y + cell_h - 10],
-            fill=(255, 255, 255), outline=theme["accent"], width=4,
-        )
-
-        if item["filename"]:
-            photo_path = os.path.join(upload_dir, item["filename"])
-            if os.path.exists(photo_path):
-                img = Image.open(photo_path).convert("RGB")
-                # Center-crop ("cover" style) so the photo fills the cell without stretching
-                img_ratio = img.width / img.height
-                target_ratio = photo_area_w / photo_area_h
-                if img_ratio > target_ratio:
-                    new_height = img.height
-                    new_width = int(new_height * target_ratio)
-                    left = (img.width - new_width) // 2
-                    img = img.crop((left, 0, left + new_width, new_height))
-                else:
-                    new_width = img.width
-                    new_height = int(new_width / target_ratio)
-                    top = (img.height - new_height) // 2
-                    img = img.crop((0, top, new_width, top + new_height))
-                img = img.resize((photo_area_w, photo_area_h), Image.LANCZOS)
-                canvas.paste(img, (photo_x, photo_y))
-        else:
-            # Placeholder for an item with no photo uploaded yet
-            draw.rectangle(
-                [photo_x, photo_y, photo_x + photo_area_w, photo_y + photo_area_h],
-                fill=(245, 245, 245),
-            )
-            placeholder_font = get_photo_year_font(70)
-            ph_text = "No photo yet"
-            pbbox = draw.textbbox((0, 0), ph_text, font=placeholder_font)
-            pw = pbbox[2] - pbbox[0]
-            draw.text(
-                (photo_x + (photo_area_w - pw) / 2, photo_y + photo_area_h / 2 - 25),
-                ph_text, font=placeholder_font, fill=(180, 180, 180),
-            )
-
-        # Label below the photo cell (e.g. "Month 3" or "Week 7")
-        label_text = f"{label_prefix} {item['number']}"
-        lbbox = draw.textbbox((0, 0), label_text, font=label_font)
-        lw = lbbox[2] - lbbox[0]
-        draw.text(
-            (cell_x + (cell_w - lw) / 2, cell_y + cell_h - 15),
-            label_text, font=label_font, fill=theme["text"],
-        )
-
-    buffer = io.BytesIO()
-    canvas.save(buffer, "PDF", resolution=float(dpi))
-    buffer.seek(0)
-    return buffer
-
-
-@app.route("/photo-weeks")
-def photo_weeks_view():
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM weekly_photos").fetchall()
-    conn.close()
-
-    photos_by_week = {r["week_number"]: r["filename"] for r in rows}
-    weeks = [{"number": i, "filename": photos_by_week.get(i)} for i in range(1, 13)]
-    filled_count = len(photos_by_week)
-
-    return render_template(
-        "photo_weeks.html",
-        weeks=weeks,
-        filled_count=filled_count,
-        themes=PHOTO_YEAR_THEMES,
-        active="growth",
-    )
-
-
-@app.route("/photo-weeks/upload", methods=["POST"])
-def photo_weeks_upload():
-    try:
-        week_number = int(request.form.get("week_number"))
-    except (TypeError, ValueError):
-        return redirect(url_for("photo_weeks_view"))
-
-    if week_number < 1 or week_number > 12:
-        return redirect(url_for("photo_weeks_view"))
-
-    file = request.files.get("photo")
-    if not file or file.filename == "":
-        return redirect(url_for("photo_weeks_view"))
-
-    allowed_extensions = {".jpg", ".jpeg", ".png", ".webp"}
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in allowed_extensions:
-        return redirect(url_for("photo_weeks_view"))
-
-    weeks_upload_dir = os.path.join("static", "uploads", "photo_weeks")
-    os.makedirs(weeks_upload_dir, exist_ok=True)
-
-    conn = get_db()
-    existing = conn.execute(
-        "SELECT filename FROM weekly_photos WHERE week_number = ?", (week_number,)
-    ).fetchone()
-    if existing:
-        old_path = os.path.join(weeks_upload_dir, existing["filename"])
-        if os.path.exists(old_path):
-            os.remove(old_path)
-
-    safe_filename = f"week_{week_number:02d}{ext}"
-    file.save(os.path.join(weeks_upload_dir, safe_filename))
-
-    conn.execute(
-        """
-        INSERT INTO weekly_photos (week_number, filename, uploaded_at) VALUES (?, ?, ?)
-        ON CONFLICT(week_number) DO UPDATE SET filename = excluded.filename, uploaded_at = excluded.uploaded_at
-        """,
-        (week_number, safe_filename, datetime.now().isoformat()),
-    )
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for("photo_weeks_view"))
-
-
-@app.route("/photo-weeks/delete/<int:week_number>", methods=["POST"])
-def photo_weeks_delete(week_number):
-    weeks_upload_dir = os.path.join("static", "uploads", "photo_weeks")
-    conn = get_db()
-    row = conn.execute(
-        "SELECT filename FROM weekly_photos WHERE week_number = ?", (week_number,)
-    ).fetchone()
-    if row:
-        path = os.path.join(weeks_upload_dir, row["filename"])
-        if os.path.exists(path):
-            os.remove(path)
-        conn.execute("DELETE FROM weekly_photos WHERE week_number = ?", (week_number,))
-        conn.commit()
-    conn.close()
-    return redirect(url_for("photo_weeks_view"))
-
-
-@app.route("/photo-weeks/generate")
-def photo_weeks_generate():
-    theme_key = request.args.get("theme", "soft_blue")
-
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM weekly_photos").fetchall()
-    conn.close()
-
-    photos_by_week = {r["week_number"]: r["filename"] for r in rows}
-    weeks_data = [{"number": i, "filename": photos_by_week.get(i)} for i in range(1, 13)]
-
-    weeks_upload_dir = os.path.join("static", "uploads", "photo_weeks")
-    pdf_buffer = build_photo_collage_pdf(
-        weeks_data, theme_key, f"{get_settings()['baby_name']}'s First 12 Weeks", "Week", weeks_upload_dir
-    )
-
-    return send_file(
-        pdf_buffer,
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name="ethans-first-12-weeks.pdf",
-    )
-
-
 @app.route("/report")
+@login_required
 def report_view():
     conn = get_db()
     rows = conn.execute(
@@ -1319,6 +1168,7 @@ def report_view():
 
 
 @app.route("/import", methods=["GET", "POST"])
+@login_required
 def import_csv():
     message = None
     error = None
@@ -1391,12 +1241,13 @@ def import_csv():
                 elif not valid_rows:
                     error = "No valid rows found in that file."
                 else:
-                    # Safety net: snapshot the database before writing, just in case
-                    import shutil, os
-                    if os.path.exists(DB_PATH):
+                    # Safety net: snapshot this user's own database before writing, just in case
+                    import shutil
+                    user_db_path = os.path.join(DATA_DIR, f"tracker_{current_user()['id']}.db")
+                    if os.path.exists(user_db_path):
                         os.makedirs("backups", exist_ok=True)
-                        snapshot_name = f"backups/tracker_pre_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
-                        shutil.copy2(DB_PATH, snapshot_name)
+                        snapshot_name = f"backups/tracker_{current_user()['id']}_pre_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+                        shutil.copy2(user_db_path, snapshot_name)
 
                     conn = get_db()
                     try:
@@ -1426,6 +1277,7 @@ def import_csv():
 
 
 @app.route("/edit/<int:entry_id>", methods=["GET", "POST"])
+@login_required
 def edit_entry(entry_id):
     conn = get_db()
 
@@ -1461,6 +1313,7 @@ def edit_entry(entry_id):
 
 
 @app.route("/delete/<int:entry_id>", methods=["POST"])
+@login_required
 def delete_entry(entry_id):
     entry_date = request.form.get("entry_date") or date.today().isoformat()
 
@@ -1473,6 +1326,7 @@ def delete_entry(entry_id):
 
 
 @app.route("/export.csv")
+@login_required
 def export_csv():
     """Export all entries (or a single date if provided) as a downloadable CSV."""
     entry_date = request.args.get("entry_date")
@@ -1504,6 +1358,7 @@ def export_csv():
 
 
 @app.route("/journal/export.csv")
+@login_required
 def journal_export_csv():
     """Export all journal entries as a downloadable CSV."""
     conn = get_db()
@@ -1525,21 +1380,113 @@ def journal_export_csv():
     )
 
 
+@app.route("/signup", methods=["GET", "POST"])
+def signup_view():
+    error = None
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        name = (request.form.get("name") or "").strip()
+        password = request.form.get("password") or ""
+        confirm_password = request.form.get("confirm_password") or ""
+
+        if not email or not password:
+            error = "Email and password are both required."
+        elif password != confirm_password:
+            error = "Those two passwords don't match."
+        elif len(password) < 8:
+            error = "Password needs to be at least 8 characters."
+        else:
+            conn = get_auth_db()
+            existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+            if existing:
+                conn.close()
+                error = "An account with that email already exists - try logging in instead."
+            else:
+                conn.execute(
+                    "INSERT INTO users (email, name, password_hash, created_at) VALUES (?, ?, ?, ?)",
+                    (email, name or email.split("@")[0], generate_password_hash(password), datetime.now().isoformat()),
+                )
+                conn.commit()
+                new_user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+                conn.close()
+                session["user_id"] = new_user["id"]
+                return redirect(request.values.get("next") or url_for("home"))
+
+    return render_template("signup.html", error=error, next=request.values.get("next", ""))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login_view():
+    error = None
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+
+        conn = get_auth_db()
+        user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        conn.close()
+
+        if user and check_password_hash(user["password_hash"], password):
+            session["user_id"] = user["id"]
+            return redirect(request.values.get("next") or url_for("home"))
+        error = "Incorrect email or password."
+
+    return render_template("login.html", error=error, next=request.args.get("next", ""))
+
+
+@app.route("/logout", methods=["POST"])
+def logout_view():
+    session.pop("user_id", None)
+    return redirect(url_for("login_view"))
+
+
 @app.route("/settings", methods=["GET", "POST"])
+@login_required
 def settings_view():
     saved = False
+    error = None
+
+    # Bounds for the birth date: can't be in the future, and (to catch fat-finger
+    # typos like a birth year instead of a birth date) can't be more than 3 years ago.
+    earliest_allowed = date.today() - timedelta(days=3 * 365)
+    latest_allowed = date.today()
+
     if request.method == "POST":
         baby_name = (request.form.get("baby_name") or "").strip() or DEFAULT_BABY_NAME
         birth_date_str = request.form.get("birth_date") or date.today().isoformat()
-        save_settings(baby_name, birth_date_str)
-        saved = True
+
+        try:
+            parsed_birth_date = datetime.strptime(birth_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            error = "That doesn't look like a valid date."
+            parsed_birth_date = None
+
+        if parsed_birth_date is not None:
+            if parsed_birth_date > latest_allowed:
+                error = "Birth date can't be in the future."
+            elif parsed_birth_date < earliest_allowed:
+                error = "That birth date is more than 3 years ago - please double check it."
+            else:
+                save_settings(baby_name, birth_date_str)
+                saved = True
 
     settings = get_settings()
+    if error:
+        # Re-show what they typed rather than silently reverting to the old saved values
+        baby_name_value = request.form.get("baby_name") or settings["baby_name"]
+        birth_date_value = request.form.get("birth_date") or settings["birth_date"].isoformat()
+    else:
+        baby_name_value = settings["baby_name"]
+        birth_date_value = settings["birth_date"].isoformat()
+
     return render_template(
         "settings.html",
-        baby_name_value=settings["baby_name"],
-        birth_date_value=settings["birth_date"].isoformat(),
+        baby_name_value=baby_name_value,
+        birth_date_value=birth_date_value,
+        min_birth_date=earliest_allowed.isoformat(),
+        max_birth_date=latest_allowed.isoformat(),
         saved=saved,
+        error=error,
         active="settings",
     )
 

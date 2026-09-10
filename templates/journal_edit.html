@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Journal Entry - Baby {{ baby_name }}'s Tracker</title>
+    <title>Edit Journal Entry - {{ baby_name }}'s Steps</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Tracker</h1>
+        <h1>👶 {{ baby_name }}'s Steps</h1>
         {% include "_nav.html" %}
 
         <h2>Edit Journal Entry</h2>

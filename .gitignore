@@ -1,5 +1,6 @@
-# Never track the live database or backups - this is real data, not code
-tracker.db
+# Never track anyone's real data or backups - this is people's actual tracking data, not code
+auth.db
+data/
 backups/
 
 static/uploads/

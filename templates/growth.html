@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Growth - Baby {{ baby_name }}'s Tracker</title>
+    <title>Growth - {{ baby_name }}'s Steps</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .growth-hero {
@@ -34,7 +34,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Tracker</h1>
+        <h1>👶 {{ baby_name }}'s Steps</h1>
         {% include "_nav.html" %}
 
         <div class="growth-hero">
@@ -42,10 +42,6 @@
             <div class="age-sub">{{ age_days }} days total &middot; ~{{ age_months }} months</div>
             <div class="stage-badge" id="stage-badge">{{ guidance.label }} stage</div>
         </div>
-
-        <p style="text-align:center; margin: 4px 0 16px;">
-            <a href="{{ url_for('photo_weeks_view') }}" style="font-size:0.8rem; color:#4a90d9; text-decoration:none;">📸 {{ baby_name }}'s First 12 Weeks</a>
-        </p>
 
         <div class="slider-bar">
             <button type="button" id="prev-btn" onclick="moveSlider(-1)">◀ Prev</button>
