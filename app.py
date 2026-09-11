@@ -1564,8 +1564,14 @@ def settings_view():
     )
 
 
+# Runs at import time, not just when this file is executed directly - CREATE TABLE IF NOT
+# EXISTS makes it a safe no-op on every later import/restart. This matters because a real
+# deployment (e.g. a WSGI server on PythonAnywhere) imports this module instead of running
+# it as __main__, so if init_db() only happened below, the users table would never get
+# created there and the first signup attempt would fail outright.
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     # Debug mode (auto-reload + the interactive in-browser debugger) is OFF by default -
     # safe wherever this ends up running. Turn it on for your own local testing by setting
     # FLASK_DEBUG=1 before running, e.g. in PowerShell:
