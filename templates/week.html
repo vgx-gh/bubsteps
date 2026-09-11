@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weekly View - {{ baby_name }}'s Steps</title>
+    <title>Weekly View - Baby {{ baby_name }}'s Steps</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .week-day-card { background:#fff; border-radius:10px; padding:12px 14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
@@ -20,7 +20,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>👶 {{ baby_name }}'s Steps</h1>
+        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
         {% include "_nav.html" with context %}
 
         {% if last_fed %}

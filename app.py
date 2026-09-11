@@ -1,5 +1,6 @@
 import sqlite3
 import csv
+import glob
 import io
 import os
 import secrets
@@ -172,7 +173,14 @@ def get_db():
 # Seed defaults - used only until someone saves real values on the /settings page,
 # so a freshly-cloned copy of the app behaves sensibly out of the box.
 DEFAULT_BABY_NAME = "Baby"
-DEFAULT_BIRTH_DATE = date(2024, 1, 1)
+
+
+def default_birth_date():
+    """Today's date, computed fresh on every call (never a fixed date baked into the
+    source) - used as the birth date shown/assumed until someone saves a real one on
+    the /settings page. Being today means a brand new account's birth-date field opens
+    on today rather than some arbitrary placeholder date, ready to edit."""
+    return date.today()
 
 
 def get_settings():
@@ -180,12 +188,12 @@ def get_settings():
     user's own settings table. Falls back to the defaults above if nobody's logged
     in (e.g. rendering the login/signup pages) or no settings row has been saved yet."""
     if current_user() is None:
-        return {"baby_name": DEFAULT_BABY_NAME, "birth_date": DEFAULT_BIRTH_DATE}
+        return {"baby_name": DEFAULT_BABY_NAME, "birth_date": default_birth_date()}
     conn = get_db()
     row = conn.execute("SELECT * FROM settings WHERE id = 1").fetchone()
     conn.close()
     if row is None:
-        return {"baby_name": DEFAULT_BABY_NAME, "birth_date": DEFAULT_BIRTH_DATE}
+        return {"baby_name": DEFAULT_BABY_NAME, "birth_date": default_birth_date()}
     return {
         "baby_name": row["baby_name"],
         "birth_date": datetime.strptime(row["birth_date"], "%Y-%m-%d").date(),
@@ -1437,7 +1445,11 @@ def login_view():
             return redirect(request.values.get("next") or url_for("home"))
         error = "Incorrect email or password."
 
-    return render_template("login.html", error=error, next=request.args.get("next", ""))
+    # Shown once, right after settings_view deletes an account and redirects here -
+    # not stored anywhere, just a one-off query param on this one redirect.
+    message = "Your account and all its data have been permanently deleted." if request.args.get("deleted") else None
+
+    return render_template("login.html", error=error, message=message, next=request.args.get("next", ""))
 
 
 @app.route("/logout", methods=["POST"])
@@ -1451,13 +1463,65 @@ def logout_view():
 def settings_view():
     saved = False
     error = None
+    password_saved = False
+    password_error = None
+    delete_error = None
 
     # Bounds for the birth date: can't be in the future, and (to catch fat-finger
     # typos like a birth year instead of a birth date) can't be more than 3 years ago.
     earliest_allowed = date.today() - timedelta(days=3 * 365)
     latest_allowed = date.today()
 
-    if request.method == "POST":
+    if request.method == "POST" and request.form.get("form_name") == "change_password":
+        current_password = request.form.get("current_password") or ""
+        new_password = request.form.get("new_password") or ""
+        confirm_new_password = request.form.get("confirm_new_password") or ""
+
+        user = current_user()
+        if not check_password_hash(user["password_hash"], current_password):
+            password_error = "That's not your current password."
+        elif new_password != confirm_new_password:
+            password_error = "Those two new passwords don't match."
+        elif len(new_password) < 8:
+            password_error = "New password needs to be at least 8 characters."
+        else:
+            conn = get_auth_db()
+            conn.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (generate_password_hash(new_password), user["id"]),
+            )
+            conn.commit()
+            conn.close()
+            password_saved = True
+
+    elif request.method == "POST" and request.form.get("form_name") == "delete_account":
+        current_password = request.form.get("current_password") or ""
+
+        user = current_user()
+        if not check_password_hash(user["password_hash"], current_password):
+            delete_error = "That's not your current password - nothing was deleted."
+        else:
+            user_id = user["id"]
+
+            # Remove this user's own tracker data (entries/journal/weight/settings), plus
+            # any pre-import safety-net snapshots for them (see the CSV import code above).
+            # The shared auth.db is handled separately below - deleting their row there is
+            # what actually removes the account and signs them out for good.
+            user_db_path = os.path.join(DATA_DIR, f"tracker_{user_id}.db")
+            if os.path.exists(user_db_path):
+                os.remove(user_db_path)
+            for backup_path in glob.glob(os.path.join("backups", f"tracker_{user_id}_pre_import_*.db")):
+                os.remove(backup_path)
+
+            conn = get_auth_db()
+            conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+            conn.close()
+
+            session.pop("user_id", None)
+            return redirect(url_for("login_view", deleted="1"))
+
+    elif request.method == "POST":
         baby_name = (request.form.get("baby_name") or "").strip() or DEFAULT_BABY_NAME
         birth_date_str = request.form.get("birth_date") or date.today().isoformat()
 
@@ -1493,6 +1557,9 @@ def settings_view():
         max_birth_date=latest_allowed.isoformat(),
         saved=saved,
         error=error,
+        password_saved=password_saved,
+        password_error=password_error,
+        delete_error=delete_error,
         active="settings",
     )
 

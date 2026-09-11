@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ baby_name }}'s First 12 Weeks - Baby {{ baby_name }}'s Steps</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .photo-year-intro { text-align:center; color:#666; font-size:0.85rem; margin-bottom:16px; }
+        .photo-progress { text-align:center; font-weight:700; color:#4a90d9; margin-bottom:20px; font-size:0.95rem; }
+        .photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; }
+        .photo-slot { background:#fff; border-radius:10px; padding:10px; box-shadow:0 1px 3px rgba(0,0,0,0.08); text-align:center; }
+        .photo-slot-label { font-weight:700; font-size:0.85rem; color:#333; margin-bottom:8px; }
+        .photo-slot img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; margin-bottom:8px; background:#f0f2f5; }
+        .photo-slot .empty-preview { width:100%; aspect-ratio:1; border-radius:8px; margin-bottom:8px; background:#f0f2f5; display:flex; align-items:center; justify-content:center; color:#bbb; font-size:0.75rem; }
+        .photo-slot input[type=file] { font-size:0.7rem; width:100%; margin-bottom:6px; }
+        .photo-slot-actions { display:flex; gap:8px; justify-content:center; }
+        .photo-slot-actions button { font-size:0.72rem; padding:6px 10px; }
+        .theme-picker { background:#fff; border-radius:10px; padding:16px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+        .theme-options { display:flex; gap:10px; margin-top:8px; }
+        .theme-option { flex:1; text-align:center; padding:10px; border-radius:8px; border:2px solid #ddd; cursor:pointer; font-size:0.8rem; font-weight:600; }
+        .theme-option.selected { border-color:#4a90d9; background:#eaf4ff; }
+        .generate-btn { display:block; width:100%; padding:14px; background:#4a90d9; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:1rem; text-align:center; text-decoration:none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+        {% include "_nav.html" %}
+
+        <h2 style="text-align:center;">📸 {{ baby_name }}'s First 12 Weeks</h2>
+        <p class="photo-year-intro">Upload one photo per week, then generate a print-ready A3 keepsake collage.</p>
+        <div class="photo-progress">{{ filled_count }} / 12 weeks uploaded</div>
+
+        <div class="photo-grid">
+            {% for w in weeks %}
+            <div class="photo-slot">
+                <div class="photo-slot-label">Week {{ w.number }}</div>
+                {% if w.filename %}
+                    <img src="{{ url_for('static', filename='uploads/photo_weeks/' + w.filename) }}" alt="Week {{ w.number }}">
+                {% else %}
+                    <div class="empty-preview">No photo yet</div>
+                {% endif %}
+                <form method="POST" action="{{ url_for('photo_weeks_upload') }}" enctype="multipart/form-data">
+                    <input type="hidden" name="week_number" value="{{ w.number }}">
+                    <input type="file" name="photo" accept="image/*" required>
+                    <button type="submit">{{ 'Replace' if w.filename else 'Upload' }}</button>
+                </form>
+                {% if w.filename %}
+                <form method="POST" action="{{ url_for('photo_weeks_delete', week_number=w.number) }}" onsubmit="return confirm('Remove this photo?');">
+                    <button type="submit" class="link-btn">Remove</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="theme-picker">
+            <label style="font-weight:700;">Choose a style</label>
+            <div class="theme-options">
+                {% for key, meta in themes.items() %}
+                <label class="theme-option" id="theme-label-{{ key }}" onclick="selectTheme('{{ key }}')">
+                    <input type="radio" name="theme" value="{{ key }}" style="display:none;" {% if loop.first %}checked{% endif %}>
+                    {{ meta.label }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <a href="#" id="generate-link" class="generate-btn" onclick="generateCollage(); return false;">🖨️ Generate A3 Print (PDF)</a>
+    </div>
+
+    <script>
+        let selectedTheme = document.querySelector('input[name="theme"]:checked').value;
+        document.getElementById('theme-label-' + selectedTheme).classList.add('selected');
+
+        function selectTheme(key) {
+            document.querySelectorAll('.theme-option').forEach(el => el.classList.remove('selected'));
+            document.getElementById('theme-label-' + key).classList.add('selected');
+            document.querySelector('input[name="theme"][value="' + key + '"]').checked = true;
+            selectedTheme = key;
+        }
+
+        function generateCollage() {
+            window.location.href = "{{ url_for('photo_weeks_generate') }}?theme=" + selectedTheme;
+        }
+    </script>
+</body>
+</html>

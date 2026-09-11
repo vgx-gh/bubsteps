@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings - {{ baby_name }}'s Steps</title>
+    <title>Settings - Baby {{ baby_name }}'s Steps</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>👶 {{ baby_name }}'s Steps</h1>
+        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
         {% include "_nav.html" %}
 
         <h2>Settings</h2>
@@ -31,6 +31,8 @@
         {% endif %}
 
         <form method="POST" class="log-form">
+            <input type="hidden" name="form_name" value="baby_settings">
+
             <label for="baby_name">Baby's name</label>
             <input type="text" id="baby_name" name="baby_name" value="{{ baby_name_value }}" required>
 
@@ -45,6 +47,57 @@
             The birth date is also used to calculate age, weekly views, and "Week 0" throughout the app —
             changing it here updates all of those automatically.
         </p>
+
+        <h2 style="margin-top:32px;">Change Password</h2>
+
+        {% if password_saved %}
+        <p style="color:#2e7d32; font-weight:600;">✅ Password updated.</p>
+        {% endif %}
+
+        {% if password_error %}
+        <p style="color:#c0392b; font-weight:600;">⚠️ {{ password_error }}</p>
+        {% endif %}
+
+        <form method="POST" class="log-form">
+            <input type="hidden" name="form_name" value="change_password">
+
+            <label for="current_password">Current password</label>
+            <input type="password" id="current_password" name="current_password" autocomplete="current-password" required>
+
+            <label for="new_password">New password</label>
+            <input type="password" id="new_password" name="new_password" autocomplete="new-password" required>
+
+            <label for="confirm_new_password">Confirm new password</label>
+            <input type="password" id="confirm_new_password" name="confirm_new_password" autocomplete="new-password" required>
+
+            <button type="submit">Change Password</button>
+        </form>
+
+        <p style="font-size:0.8rem; color:#777; margin-top:16px;">
+            Needs to be at least 8 characters, same as when the account was created. This only changes
+            your login password - none of your tracker data is touched.
+        </p>
+
+        <h2 style="margin-top:32px; color:#c0392b;">Delete Account</h2>
+
+        {% if delete_error %}
+        <p style="color:#c0392b; font-weight:600;">⚠️ {{ delete_error }}</p>
+        {% endif %}
+
+        <p style="font-size:0.85rem; color:#555;">
+            This permanently deletes your login and every entry, journal note, and weight record you've
+            logged - there's no undo, and nobody (including us) can get it back afterwards.
+        </p>
+
+        <form method="POST" class="log-form"
+              onsubmit="return confirm('Delete your account and all its data? This can\'t be undone.');">
+            <input type="hidden" name="form_name" value="delete_account">
+
+            <label for="delete_current_password">Confirm your password</label>
+            <input type="password" id="delete_current_password" name="current_password" autocomplete="current-password" required>
+
+            <button type="submit" style="background:#c0392b;">Delete My Account</button>
+        </form>
     </div>
 </body>
 </html>

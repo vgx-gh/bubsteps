@@ -12,6 +12,10 @@
 
         <h2>Log In</h2>
 
+        {% if message %}
+        <p style="color:#2e7d32; font-weight:600;">✅ {{ message }}</p>
+        {% endif %}
+
         {% if error %}
         <p style="color:#c0392b; font-weight:600;">⚠️ {{ error }}</p>
         {% endif %}

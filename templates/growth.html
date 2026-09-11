@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Growth - {{ baby_name }}'s Steps</title>
+    <title>Growth - Baby {{ baby_name }}'s Steps</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .growth-hero {
@@ -34,7 +34,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>👶 {{ baby_name }}'s Steps</h1>
+        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
         {% include "_nav.html" %}
 
         <div class="growth-hero">
