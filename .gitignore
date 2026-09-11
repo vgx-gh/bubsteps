@@ -1,6 +1,9 @@
-# Never track anyone's real data or backups - this is people's actual tracking data, not code
+# Never track the live database(s) or backups - this is real data, not code.
+# auth.db = shared login table (emails/password hashes). data/ = each family's
+# own tracker_<user_id>.db. tracker.db is kept too for the old single-user layout.
 auth.db
 data/
+tracker.db
 backups/
 
 static/uploads/
