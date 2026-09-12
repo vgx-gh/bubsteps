@@ -3,11 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ baby_name }}'s First 12 Weeks - Baby {{ baby_name }}'s Steps</title>
+    <title>{{ baby_name }}'s First 12 Weeks - {{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
     <style>
         .photo-year-intro { text-align:center; color:#666; font-size:0.85rem; margin-bottom:16px; }
-        .photo-progress { text-align:center; font-weight:700; color:#4a90d9; margin-bottom:20px; font-size:0.95rem; }
+        .photo-progress { text-align:center; font-weight:700; color:#3c98a4; margin-bottom:20px; font-size:0.95rem; }
         .photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; }
         .photo-slot { background:#fff; border-radius:10px; padding:10px; box-shadow:0 1px 3px rgba(0,0,0,0.08); text-align:center; }
         .photo-slot-label { font-weight:700; font-size:0.85rem; color:#333; margin-bottom:8px; }
@@ -19,13 +27,13 @@
         .theme-picker { background:#fff; border-radius:10px; padding:16px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
         .theme-options { display:flex; gap:10px; margin-top:8px; }
         .theme-option { flex:1; text-align:center; padding:10px; border-radius:8px; border:2px solid #ddd; cursor:pointer; font-size:0.8rem; font-weight:600; }
-        .theme-option.selected { border-color:#4a90d9; background:#eaf4ff; }
-        .generate-btn { display:block; width:100%; padding:14px; background:#4a90d9; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:1rem; text-align:center; text-decoration:none; }
+        .theme-option.selected { border-color:#3c98a4; background:#ebf8f9; }
+        .generate-btn { display:block; width:100%; padding:14px; background:#3c98a4; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:1rem; text-align:center; text-decoration:none; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+        <h1>👣 {{ app_title }}</h1>
         {% include "_nav.html" %}
 
         <h2 style="text-align:center;">📸 {{ baby_name }}'s First 12 Weeks</h2>

@@ -3,22 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Journal - Baby {{ baby_name }}'s Steps</title>
+    <title>Journal - {{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
     <style>
         .journal-day { background:#fff; border-radius:10px; padding:12px 14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
-        .journal-day.is-today { background: #eaf4ff; border: 1px solid #bcdcf7; }
+        .journal-day.is-today { background: #ebf8f9; border: 1px solid #90d6e0; }
         .journal-day-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
         .journal-day-label { font-weight:700; font-size:0.9rem; color:#333; }
         .journal-day-header-right { display:flex; align-items:center; gap:8px; }
-        .journal-day-add { font-size:0.72rem; color:#4a90d9; font-weight:700; text-decoration:none; background:#eaf4ff; padding:3px 8px; border-radius:8px; }
-        .journal-day-number { font-size:0.75rem; color:#4a90d9; font-weight:700; background:#eaf4ff; padding:2px 8px; border-radius:10px; }
+        .journal-day-add { font-size:0.72rem; color:#3c98a4; font-weight:700; text-decoration:none; background:#ebf8f9; padding:3px 8px; border-radius:8px; }
+        .journal-day-number { font-size:0.75rem; color:#3c98a4; font-weight:700; background:#ebf8f9; padding:2px 8px; border-radius:10px; }
         .journal-entry { border-top:1px solid #f0f0f0; padding:8px 0; }
         .journal-entry:first-of-type { border-top:none; padding-top:0; }
-        .journal-event { font-weight:700; font-size:0.85rem; color:#2c5f8a; }
+        .journal-event { font-weight:700; font-size:0.85rem; color:#244a4e; }
         .journal-notes { font-size:0.82rem; color:#555; margin-top:2px; white-space:pre-wrap; }
         .journal-entry-actions { margin-top:4px; }
-        .journal-entry-actions a { font-size:0.72rem; color:#4a90d9; text-decoration:none; font-weight:600; margin-right:10px; }
+        .journal-entry-actions a { font-size:0.72rem; color:#3c98a4; text-decoration:none; font-weight:600; margin-right:10px; }
         .journal-entry-actions button { font-size:0.72rem; color:#d9534f; background:none; border:none; font-weight:600; cursor:pointer; padding:0; }
         .journal-empty { font-size:0.8rem; color:#bbb; font-style:italic; }
         .day-scroll a.disabled { color:#ccc; pointer-events:none; font-weight:700; }
@@ -26,7 +34,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+        <h1>👣 {{ app_title }}</h1>
         {% include "_nav.html" %}
 
         <form method="GET" class="date-picker">

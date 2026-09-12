@@ -3,8 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weight - Baby {{ baby_name }}'s Steps</title>
+    <title>Weight - {{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
     <style>
         table.weight-history { width:100%; table-layout:fixed; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
         table.weight-history th, table.weight-history td { padding: 6px 8px; border-bottom:1px solid #eee; text-align:left; font-size: 0.8rem; white-space: nowrap; }
@@ -13,12 +21,12 @@
         table.weight-history th:nth-child(2), table.weight-history td:nth-child(2) { width: 30%; }
         table.weight-history th:nth-child(3), table.weight-history td:nth-child(3) { width: 25%; }
         .weight-page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; }
-        .weight-add-link { font-size:0.85rem; color:#4a90d9; font-weight:700; text-decoration:none; background:#eaf4ff; padding:6px 14px; border-radius:8px; }
+        .weight-add-link { font-size:0.85rem; color:#3c98a4; font-weight:700; text-decoration:none; background:#ebf8f9; padding:6px 14px; border-radius:8px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+        <h1>👣 {{ app_title }}</h1>
         {% include "_nav.html" %}
 
         <div class="weight-page-header">

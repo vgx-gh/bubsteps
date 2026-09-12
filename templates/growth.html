@@ -3,43 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Growth - Baby {{ baby_name }}'s Steps</title>
+    <title>Growth - {{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
     <style>
         .growth-hero {
-            background: linear-gradient(135deg, #eaf4ff 0%, #dcecfb 100%);
+            background: linear-gradient(135deg, #ebf8f9 0%, #daf9fd 100%);
             border-radius: 16px;
             padding: 28px 20px;
             text-align: center;
             margin-bottom: 20px;
         }
-        .growth-hero .age-big { font-size: 2.1rem; font-weight: 800; color: #2c5f8a; margin-bottom: 4px; }
-        .growth-hero .age-sub { color: #5a89ac; font-size: 0.9rem; font-weight: 600; }
-        .growth-hero .stage-badge { display: inline-block; margin-top: 12px; background: #fff; color: #4a90d9; font-weight: 700; font-size: 0.8rem; padding: 6px 14px; border-radius: 20px; }
+        .growth-hero .age-big { font-size: 2.1rem; font-weight: 800; color: #244a4e; margin-bottom: 4px; }
+        .growth-hero .age-sub { color: #5aa3ac; font-size: 0.9rem; font-weight: 600; }
+        .growth-hero .stage-badge { display: inline-block; margin-top: 12px; background: #fff; color: #3c98a4; font-weight: 700; font-size: 0.8rem; padding: 6px 14px; border-radius: 20px; }
         .slider-bar { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 10px; padding: 10px 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-        .slider-bar button { background: #4a90d9; color: #fff; border: none; border-radius: 8px; padding: 10px 14px; font-weight: 700; font-size: 0.95rem; cursor: pointer; }
+        .slider-bar button { background: #3c98a4; color: #fff; border: none; border-radius: 8px; padding: 10px 14px; font-weight: 700; font-size: 0.95rem; cursor: pointer; }
         .slider-bar button:disabled { background: #ccc; cursor: not-allowed; }
         .slider-bar .slider-label { flex: 1; text-align: center; font-weight: 700; color: #333; font-size: 0.9rem; }
         .slider-reset { text-align: center; margin-bottom: 20px; }
-        .slider-reset a { color: #4a90d9; font-size: 0.8rem; font-weight: 600; text-decoration: none; }
+        .slider-reset a { color: #3c98a4; font-size: 0.8rem; font-weight: 600; text-decoration: none; }
         .viewing-note { text-align: center; font-size: 0.75rem; color: #a55; margin-bottom: 12px; font-weight: 600; }
         .guidance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
         @media (max-width: 480px) { .guidance-grid { grid-template-columns: 1fr; } }
-        .guidance-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-top: 3px solid #4a90d9; }
+        .guidance-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-top: 3px solid #3c98a4; }
         .guidance-card .card-icon { font-size: 1.3rem; margin-bottom: 6px; }
-        .guidance-card .card-title { font-weight: 700; font-size: 0.85rem; color: #2c5f8a; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; }
+        .guidance-card .card-title { font-weight: 700; font-size: 0.85rem; color: #244a4e; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; }
         .guidance-card .card-body { font-size: 0.9rem; color: #444; line-height: 1.4; }
         .growth-disclaimer { font-size: 0.75rem; color: #999; text-align: center; margin-top: 24px; line-height: 1.5; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+        <h1>👣 {{ app_title }}</h1>
         {% include "_nav.html" %}
 
         <div class="growth-hero">
-            <div class="age-big">{{ age_weeks }} weeks, {{ age_extra_days }} days old</div>
-            <div class="age-sub">{{ age_days }} days total &middot; ~{{ age_months }} months</div>
+            <div class="age-big">{{ age_headline }}</div>
+            <div class="age-sub">{{ age_subline }}</div>
             <div class="stage-badge" id="stage-badge">{{ guidance.label }} stage</div>
         </div>
 

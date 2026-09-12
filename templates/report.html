@@ -3,8 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Report - Baby {{ baby_name }}'s Steps</title>
+    <title>Report - {{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
     <style>
         @media print {
             .no-print { display: none !important; }
@@ -14,22 +22,22 @@
             .report-week:last-child { page-break-after: auto; }
         }
         .report-week { margin-bottom: 28px; }
-        .report-week-title { font-size: 1.1rem; font-weight: 800; color: #2c5f8a; margin-bottom: 2px; }
+        .report-week-title { font-size: 1.1rem; font-weight: 800; color: #244a4e; margin-bottom: 2px; }
         .report-week-dates { color: #888; font-size: 0.8rem; margin-bottom: 12px; }
-        .report-comment { background:#eaf4ff; border:1px solid #bcdcf7; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:0.85rem; color:#2c5f8a; white-space:pre-wrap; }
+        .report-comment { background:#ebf8f9; border:1px solid #90d6e0; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:0.85rem; color:#244a4e; white-space:pre-wrap; }
         .report-day { background:#fff; border-radius:10px; padding:12px 14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
         .report-day h3 { margin: 0 0 8px 0; font-size: 0.95rem; }
         .mini-totals { width:100%; border-collapse:collapse; }
         .mini-totals td { padding: 3px 6px; font-size: 0.78rem; color:#444; border-bottom: 1px solid #f2f2f2; }
         .mini-totals td:first-child { color:#777; width:55%; }
         .mini-totals td:last-child { text-align:right; font-weight:600; }
-        .print-btn { display:block; width:100%; padding:12px; margin-bottom:16px; background:#4a90d9; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:1rem; cursor:pointer; }
+        .print-btn { display:block; width:100%; padding:12px; margin-bottom:16px; background:#3c98a4; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:1rem; cursor:pointer; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="no-print">
-            <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+            <h1>👣 {{ app_title }}</h1>
             {% include "_nav.html" %}
             <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
             <a class="export-link" href="{{ url_for('export_csv') }}">⬇ Export all history (CSV)</a>
@@ -47,7 +55,7 @@
             <div class="report-day">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <h3>{{ d.date }}</h3>
-                    <a href="{{ url_for('export_csv', entry_date=d.date) }}" class="no-print" style="font-size:0.72rem; color:#4a90d9; font-weight:600; text-decoration:none;">⬇ CSV</a>
+                    <a href="{{ url_for('export_csv', entry_date=d.date) }}" class="no-print" style="font-size:0.72rem; color:#3c98a4; font-weight:600; text-decoration:none;">⬇ CSV</a>
                 </div>
                 <table class="mini-totals">
                     <tr><td>Total Breast Time</td><td>{{ d.totals.breast_time_display }}</td></tr>

@@ -3,16 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Import - Baby {{ baby_name }}'s Steps</title>
+    <title>Import - {{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
     <style>
-        .import-section-label { font-size: 0.75rem; font-weight: 700; color: #4a90d9; text-transform: uppercase; letter-spacing: 0.03em; margin: 20px 0 6px; }
+        .import-section-label { font-size: 0.75rem; font-weight: 700; color: #3c98a4; text-transform: uppercase; letter-spacing: 0.03em; margin: 20px 0 6px; }
         .import-section-label:first-of-type { margin-top: 0; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+        <h1>👣 {{ app_title }}</h1>
         {% include "_nav.html" %}
 
         <h2>Import History from CSV</h2>

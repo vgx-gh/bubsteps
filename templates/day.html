@@ -3,15 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily View - Baby {{ baby_name }}'s Steps</title>
+    <title>Daily View - {{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
     <style>
-        .daily-add-link { font-size:0.72rem; color:#4a90d9; font-weight:700; text-decoration:none; background:#eaf4ff; padding:3px 8px; border-radius:8px; }
+        .daily-add-link { font-size:0.72rem; color:#3c98a4; font-weight:700; text-decoration:none; background:#ebf8f9; padding:3px 8px; border-radius:8px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+        <h1>👣 {{ app_title }}</h1>
         {% include "_nav.html" %}
 
         {% if last_fed %}

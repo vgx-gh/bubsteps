@@ -3,12 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings - Baby {{ baby_name }}'s Steps</title>
+    <title>Settings - {{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+        <h1>👣 {{ app_title }}</h1>
         {% include "_nav.html" %}
 
         <h2>Settings</h2>
@@ -78,6 +86,48 @@
             your login password - none of your tracker data is touched.
         </p>
 
+        <h2 style="margin-top:32px;">Household</h2>
+
+        <p style="font-size:0.85rem; color:#555;">
+            Add a second login (e.g. for your partner) that sees the exact same {{ baby_name }}'s data as
+            you do - not a separate, empty tracker. Both logins are independent (their own password, can
+            be changed separately), they just share one household's worth of entries.
+        </p>
+
+        {% if household_members %}
+        <ul style="font-size:0.9rem; padding-left:20px; margin:8px 0 20px;">
+            {% for member in household_members %}
+            <li>{{ member.name }} ({{ member.email }}){% if member.email == current_user.email %} — you{% endif %}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if household_saved %}
+        <p style="color:#2e7d32; font-weight:600;">✅ Login added - they can sign in with that email/password now.</p>
+        {% endif %}
+
+        {% if household_error %}
+        <p style="color:#c0392b; font-weight:600;">⚠️ {{ household_error }}</p>
+        {% endif %}
+
+        <form method="POST" class="log-form">
+            <input type="hidden" name="form_name" value="add_household_login">
+
+            <label for="new_name">Their name</label>
+            <input type="text" id="new_name" name="new_name">
+
+            <label for="new_email">Their email</label>
+            <input type="email" id="new_email" name="new_email" required>
+
+            <label for="new_password">Their password</label>
+            <input type="password" id="new_password" name="new_password" autocomplete="new-password" required>
+
+            <label for="new_confirm_password">Confirm their password</label>
+            <input type="password" id="new_confirm_password" name="new_confirm_password" autocomplete="new-password" required>
+
+            <button type="submit">Add Login</button>
+        </form>
+
         <h2 style="margin-top:32px; color:#c0392b;">Delete Account</h2>
 
         {% if delete_error %}
@@ -85,8 +135,11 @@
         {% endif %}
 
         <p style="font-size:0.85rem; color:#555;">
-            This permanently deletes your login and every entry, journal note, and weight record you've
-            logged - there's no undo, and nobody (including us) can get it back afterwards.
+            This permanently deletes your own login. If nobody else's login shares this household, every
+            entry, journal note, and weight record you've logged goes with it - there's no undo, and
+            nobody (including us) can get it back afterwards. If a partner's login still shares this
+            household, their access and all the shared data stay exactly as they are - only your own
+            login goes away.
         </p>
 
         <form method="POST" class="log-form"

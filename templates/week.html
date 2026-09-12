@@ -3,24 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weekly View - Baby {{ baby_name }}'s Steps</title>
+    <title>Weekly View - {{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
     <style>
         .week-day-card { background:#fff; border-radius:10px; padding:12px 14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
-        .week-day-card.is-today { background: #eaf4ff; border: 1px solid #bcdcf7; }
+        .week-day-card.is-today { background: #ebf8f9; border: 1px solid #90d6e0; }
         .week-day-card h3 { margin: 0 0 8px 0; font-size: 0.95rem; display:flex; justify-content:space-between; align-items:center; }
-        .week-day-card h3 a { font-size: 0.72rem; color:#4a90d9; font-weight:600; text-decoration:none; }
+        .week-day-card h3 a { font-size: 0.72rem; color:#3c98a4; font-weight:600; text-decoration:none; }
         .week-mini-totals { width:100%; border-collapse:collapse; }
         .week-mini-totals td { padding: 3px 6px; font-size: 0.78rem; color:#444; border-bottom: 1px solid #f2f2f2; }
         .week-mini-totals td:first-child { color:#777; width:55%; }
         .week-mini-totals td:last-child { text-align:right; font-weight:600; }
-        .week-life-banner { background:#eaf4ff; border:1px solid #bcdcf7; color:#2c5f8a; padding:12px 14px; border-radius:8px; margin-bottom:16px; font-weight:600; text-align:center; font-size:0.9rem; }
+        .week-life-banner { background:#ebf8f9; border:1px solid #90d6e0; color:#244a4e; padding:12px 14px; border-radius:8px; margin-bottom:16px; font-weight:600; text-align:center; font-size:0.9rem; }
         .day-scroll a.disabled { color:#ccc; pointer-events:none; font-weight:700; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+        <h1>👣 {{ app_title }}</h1>
         {% include "_nav.html" with context %}
 
         {% if last_fed %}

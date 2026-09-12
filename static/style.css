@@ -39,9 +39,9 @@ nav a {
 }
 
 nav a.active {
-    background: #4a90d9;
+    background: #3c98a4;
     color: #fff;
-    border-color: #4a90d9;
+    border-color: #3c98a4;
 }
 
 .log-form, .date-picker {
@@ -74,14 +74,14 @@ button {
     padding: 12px;
     font-size: 1.05rem;
     font-weight: 700;
-    background: #4a90d9;
+    background: #3c98a4;
     color: #fff;
     border: none;
     border-radius: 8px;
     cursor: pointer;
 }
 
-button:active { background: #3a7cc0; }
+button:active { background: #39767e; }
 
 h2 {
     font-size: 1.1rem;
@@ -158,10 +158,10 @@ table.entries th {
     margin-top: 0;
     padding: 16px 8px;
     font-size: 0.95rem;
-    background: #6fb5e0;
+    background: #4eb1bd;
 }
 
-.quick-btn:active { background: #4a90d9; }
+.quick-btn:active { background: #3c98a4; }
 
 .export-link {
     display: block;
@@ -171,7 +171,7 @@ table.entries th {
     background: #fff;
     border-radius: 8px;
     text-decoration: none;
-    color: #4a90d9;
+    color: #3c98a4;
     font-weight: 600;
     border: 1px solid #ddd;
 }
@@ -183,7 +183,7 @@ table.entries th {
 }
 
 .row-actions a {
-    color: #4a90d9;
+    color: #3c98a4;
     text-decoration: none;
     font-weight: 600;
 }
@@ -217,7 +217,7 @@ table.entries th {
     background: none;
     border: none;
     padding: 0;
-    color: #4a90d9;
+    color: #3c98a4;
     font-weight: 600;
     font-size: 0.8rem;
     text-decoration: underline;
@@ -247,9 +247,9 @@ table.entries th {
 }
 
 .topnav a.active {
-    background: #4a90d9;
+    background: #3c98a4;
     color: #fff;
-    border-color: #4a90d9;
+    border-color: #3c98a4;
 }
 
 table.week {
@@ -277,7 +277,7 @@ table.week th {
 }
 
 table.week a {
-    color: #4a90d9;
+    color: #3c98a4;
     text-decoration: none;
     font-weight: 600;
 }
@@ -294,13 +294,13 @@ table.week a {
 .weight-callout .value {
     font-size: 1.6rem;
     font-weight: 700;
-    color: #4a90d9;
+    color: #3c98a4;
 }
 
 .last-fed-banner {
-    background: #eaf4ff;
-    border: 1px solid #bcdcf7;
-    color: #2c5f8a;
+    background: #ebf8f9;
+    border: 1px solid #90d6e0;
+    color: #244a4e;
     padding: 12px 14px;
     border-radius: 8px;
     margin-bottom: 16px;
@@ -333,7 +333,7 @@ table.week a {
 }
 
 .day-scroll a {
-    color: #4a90d9;
+    color: #3c98a4;
     text-decoration: none;
     font-weight: 700;
     font-size: 0.9rem;
@@ -418,7 +418,7 @@ h2 {
     border-radius: 6px;
     padding: 4px 8px;
     cursor: pointer;
-    color: #4a90d9;
+    color: #3c98a4;
 }
 
 .filter-label-text {
@@ -441,7 +441,7 @@ h2 {
     padding: 6px 6px;
     background: transparent;
     text-decoration: none;
-    color: #4a90d9;
+    color: #3c98a4;
     font-weight: 600;
     font-size: 0.75rem;
 }

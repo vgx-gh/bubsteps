@@ -6,7 +6,7 @@ import os
 import secrets
 from functools import wraps
 from datetime import datetime, date, timedelta
-from flask import Flask, render_template, request, redirect, url_for, Response, send_file, session
+from flask import Flask, render_template, request, redirect, url_for, Response, send_file, send_from_directory, session
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
@@ -98,6 +98,54 @@ AGE_GUIDANCE = [
         "sleep": "12–15 hours total, usually 2 naps",
         "milestones": "Sits unassisted, may start crawling, responds to name, picks up small objects",
     },
+    {
+        "from_days": 270,
+        "label": "9–12 months",
+        "nappy_size": "Size 4, ~9–14kg",
+        "feed_volume": "3 meals + 1–2 snacks/day, plus ~500–600ml/day breast or formula milk",
+        "sleep": "11–14 hours total, usually 1–2 naps",
+        "milestones": "Pulls to stand, cruises along furniture, may take first steps, says first words, uses a pincer grasp",
+    },
+    {
+        "from_days": 365,
+        "label": "1–2 years",
+        "nappy_size": "Size 4–5, ~10–16kg",
+        "feed_volume": "3 meals + 2 snacks/day, transitioning to whole milk (~350–500ml/day)",
+        "sleep": "11–14 hours total, usually dropping to 1 nap",
+        "milestones": "Walks independently, builds a small vocabulary then short phrases, climbs, points to show interest",
+    },
+    {
+        "from_days": 730,
+        "label": "2–3 years",
+        "nappy_size": "Size 5–6 or pull-ups - many start toilet training around now",
+        "feed_volume": "3 meals + 1–2 snacks/day, mostly regular table food alongside the family",
+        "sleep": "10–13 hours total, usually 1 nap or none by age 3",
+        "milestones": "Runs and jumps, speaks in 2–3 word sentences, follows simple instructions, shows growing independence",
+    },
+    {
+        "from_days": 1095,
+        "label": "3–4 years",
+        "nappy_size": "Most are toilet trained by now (day and/or night) - overnight pull-ups only if still needed",
+        "feed_volume": "3 meals + 1–2 snacks/day, similar portions to family meals",
+        "sleep": "10–13 hours total, daytime naps often dropped, may still need quiet rest time",
+        "milestones": "Pedals a tricycle, speaks in full sentences, plays cooperatively, dresses with some help",
+    },
+    {
+        "from_days": 1460,
+        "label": "4–5 years",
+        "nappy_size": "Typically toilet trained day and night",
+        "feed_volume": "3 meals + 1–2 snacks/day, similar to family meals",
+        "sleep": "10–13 hours total, usually no daytime nap",
+        "milestones": "Hops and balances, tells stories, counts, draws recognizable shapes, increasingly independent",
+    },
+    {
+        "from_days": 1825,
+        "label": "5+ years",
+        "nappy_size": "Not typically needed by this age",
+        "feed_volume": "Regular family meals and snacks",
+        "sleep": "9–11 hours total, no daytime nap",
+        "milestones": "Growing independence and skills vary widely child to child - the Journal tab is probably more useful than this page from here on!",
+    },
 ]
 
 
@@ -110,6 +158,48 @@ def get_age_guidance(age_days):
         else:
             break
     return match
+
+
+def calendar_years_months(birth_date, today):
+    """Whole calendar years/months between birth_date and today (e.g. someone born
+    15 March who it is now 20 June two years later is "2 years, 3 months", not a
+    days-based approximation) - the plain-language way people actually state a
+    toddler's age, as opposed to weeks/days which stops being natural well before
+    a child turns 2."""
+    years = today.year - birth_date.year
+    months = today.month - birth_date.month
+    if today.day < birth_date.day:
+        months -= 1
+    if months < 0:
+        years -= 1
+        months += 12
+    return years, months
+
+
+def format_age_headline(age_days, birth_date, today):
+    """The big "X old" headline at the top of the Growth page. Weeks/days reads
+    naturally for infants but turns absurd well before a child turns 2 (nobody
+    says "104 weeks old") - so past that point this switches to whole calendar
+    years/months instead, e.g. "3 years, 0 months old"."""
+    if age_days < 730:
+        weeks, days = divmod(age_days, 7)
+        week_word = "week" if weeks == 1 else "weeks"
+        day_word = "day" if days == 1 else "days"
+        return f"{weeks} {week_word}, {days} {day_word} old"
+    years, months = calendar_years_months(birth_date, today)
+    year_word = "year" if years == 1 else "years"
+    month_word = "month" if months == 1 else "months"
+    return f"{years} {year_word}, {months} {month_word} old"
+
+
+def format_age_subline(age_days):
+    """Secondary line under the headline - total days plus an approximate
+    months/years figure, whichever reads more naturally at that age."""
+    if age_days < 730:
+        months = round(age_days / 30.44, 1)
+        return f"{age_days} days total · ~{months} months"
+    years = round(age_days / 365.25, 1)
+    return f"{age_days} days total · ~{years} years"
 
 
 def parse_flexible_date(raw_date):
@@ -157,15 +247,17 @@ def get_auth_db():
 
 
 def get_db():
-    """Connects to the CURRENTLY LOGGED-IN user's own personal tracker database.
-    Every family's entries/journal/weight/settings live in their own file under
-    DATA_DIR - never in one shared database. See ensure_user_db_ready() below,
-    which creates this file's tables automatically before each request."""
+    """Connects to the CURRENTLY LOGGED-IN user's household tracker database. Keyed by
+    household_id rather than the user's own id, so two separate logins that share a
+    household_id (e.g. both parents) see the exact same entries/journal/weight/settings -
+    every family's own file still lives under DATA_DIR, never in one shared database.
+    See ensure_user_db_ready() below, which creates this file's tables automatically
+    before each request."""
     user = current_user()
     if user is None:
         raise RuntimeError("get_db() called with nobody logged in")
     os.makedirs(DATA_DIR, exist_ok=True)
-    conn = sqlite3.connect(os.path.join(DATA_DIR, f"tracker_{user['id']}.db"))
+    conn = sqlite3.connect(os.path.join(DATA_DIR, f"tracker_{user['household_id']}.db"))
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -173,6 +265,10 @@ def get_db():
 # Seed defaults - used only until someone saves real values on the /settings page,
 # so a freshly-cloned copy of the app behaves sensibly out of the box.
 DEFAULT_BABY_NAME = "Baby"
+
+# Ceiling on how many logins can share one household's tracker data (see the
+# add_household_login branch of settings_view) - a sanity limit, not shown to users.
+MAX_HOUSEHOLD_MEMBERS = 5
 
 
 def default_birth_date():
@@ -247,9 +343,23 @@ def login_required(view):
 
 @app.context_processor
 def inject_settings():
-    """Makes baby_name and current_user available in every template automatically,
-    so templates don't each need them passed in explicitly via render_template()."""
-    return {"baby_name": get_settings()["baby_name"], "current_user": current_user()}
+    """Makes baby_name, app_title, and current_user available in every template
+    automatically, so templates don't each need them passed in explicitly via
+    render_template().
+
+    app_title is the "Baby X's Steps" header/title text, computed once here so
+    every page shows the same thing without repeating this logic 18 times. Until
+    a real name is saved on /settings, baby_name is still the DEFAULT_BABY_NAME
+    placeholder ("Baby") - showing that as "Baby Baby's Steps" reads like a typo,
+    so that specific case gets a friendly generic title instead. Once a name is
+    saved (e.g. "Ethan"), it becomes "Baby Ethan's Steps" as before.
+    """
+    baby_name = get_settings()["baby_name"]
+    if baby_name == DEFAULT_BABY_NAME:
+        app_title = "Your Baby Steps"
+    else:
+        app_title = f"Baby {baby_name}'s Steps"
+    return {"baby_name": baby_name, "app_title": app_title, "current_user": current_user()}
 
 
 def init_user_tables(conn):
@@ -352,7 +462,7 @@ def ensure_user_db_ready():
 
 def init_db():
     """Startup-only: creates the shared auth database (just the users table). Each
-    user's own personal tracker database is created lazily on their first request
+    household's own personal tracker database is created lazily on their first request
     instead - see ensure_user_db_ready() above."""
     conn = get_auth_db()
     conn.execute(
@@ -362,12 +472,35 @@ def init_db():
             email TEXT NOT NULL UNIQUE,
             name TEXT NOT NULL,
             password_hash TEXT NOT NULL,
+            household_id INTEGER,
             created_at TEXT NOT NULL
         )
         """
     )
     conn.commit()
+
+    # One-time migration for databases created before household logins existed: add the
+    # column if it's missing, then default every existing row to its OWN id - i.e. a
+    # solo household of one, which matches their existing tracker_<id>.db file exactly,
+    # so nobody's data moves or needs touching by hand. Safe to run on every startup.
+    existing_columns = [row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
+    if "household_id" not in existing_columns:
+        conn.execute("ALTER TABLE users ADD COLUMN household_id INTEGER")
+        conn.commit()
+    conn.execute("UPDATE users SET household_id = id WHERE household_id IS NULL")
+    conn.commit()
     conn.close()
+
+
+@app.route("/sw.js")
+def service_worker():
+    """Served from the site ROOT (not /static/sw.js) on purpose - a service worker can
+    only control pages under its own path, so serving it from /static/ would limit it to
+    controlling other static files instead of the actual app pages. No login required:
+    the browser fetches this before anyone's necessarily signed in."""
+    response = send_from_directory("static", "sw.js")
+    response.headers["Content-Type"] = "application/javascript"
+    return response
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -839,7 +972,7 @@ def build_weight_chart_svg(points):
     path_d = "M " + " L ".join(f"{x:.1f} {y:.1f}" for x, y in coords)
 
     circles = "".join(
-        f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="#4a90d9" />'
+        f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="#3c98a4" />'
         for x, y in coords
     )
     labels = "".join(
@@ -849,7 +982,7 @@ def build_weight_chart_svg(points):
     )
     value_labels = "".join(
         f'<text x="{x:.1f}" y="{y - 10:.1f}" font-size="11" font-weight="600" '
-        f'text-anchor="middle" fill="#4a90d9">{p["value"]}</text>'
+        f'text-anchor="middle" fill="#3c98a4">{p["value"]}</text>'
         for (x, y), p in zip(coords, points)
     )
 
@@ -858,7 +991,7 @@ def build_weight_chart_svg(points):
 
     return f'''<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto;">
         {grid_line}
-        <path d="{path_d}" fill="none" stroke="#4a90d9" stroke-width="2.5" />
+        <path d="{path_d}" fill="none" stroke="#3c98a4" stroke-width="2.5" />
         {circles}
         {value_labels}
         {labels}
@@ -1101,9 +1234,8 @@ def journal_report():
 @login_required
 def growth_view():
     today = date.today()
-    age_days = (today - get_birth_date()).days
-    weeks, days = divmod(age_days, 7)
-    months = round(age_days / 30.44, 1)
+    birth_date = get_birth_date()
+    age_days = (today - birth_date).days
 
     guidance = get_age_guidance(age_days)
     current_index = AGE_GUIDANCE.index(guidance)
@@ -1111,13 +1243,12 @@ def growth_view():
     return render_template(
         "growth.html",
         age_days=age_days,
-        age_weeks=weeks,
-        age_extra_days=days,
-        age_months=months,
+        age_headline=format_age_headline(age_days, birth_date, today),
+        age_subline=format_age_subline(age_days),
         guidance=guidance,
         all_stages=AGE_GUIDANCE,
         current_index=current_index,
-        birth_date=get_birth_date().isoformat(),
+        birth_date=birth_date.isoformat(),
         active="growth",
     )
 
@@ -1255,12 +1386,13 @@ def import_csv():
                 elif not valid_rows:
                     error = "No valid rows found in that file."
                 else:
-                    # Safety net: snapshot this user's own database before writing, just in case
+                    # Safety net: snapshot this household's database before writing, just in case
                     import shutil
-                    user_db_path = os.path.join(DATA_DIR, f"tracker_{current_user()['id']}.db")
+                    household_id = current_user()["household_id"]
+                    user_db_path = os.path.join(DATA_DIR, f"tracker_{household_id}.db")
                     if os.path.exists(user_db_path):
                         os.makedirs("backups", exist_ok=True)
-                        snapshot_name = f"backups/tracker_{current_user()['id']}_pre_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+                        snapshot_name = f"backups/tracker_{household_id}_pre_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
                         shutil.copy2(user_db_path, snapshot_name)
 
                     conn = get_db()
@@ -1422,6 +1554,10 @@ def signup_view():
                 )
                 conn.commit()
                 new_user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+                # A brand new signup starts its own solo household - defaults to their own
+                # id, same as the one-time migration in init_db() does for older accounts.
+                conn.execute("UPDATE users SET household_id = ? WHERE id = ?", (new_user["id"], new_user["id"]))
+                conn.commit()
                 conn.close()
                 session["user_id"] = new_user["id"]
                 return redirect(request.values.get("next") or url_for("home"))
@@ -1466,10 +1602,14 @@ def settings_view():
     password_saved = False
     password_error = None
     delete_error = None
+    household_saved = False
+    household_error = None
 
     # Bounds for the birth date: can't be in the future, and (to catch fat-finger
-    # typos like a birth year instead of a birth date) can't be more than 3 years ago.
-    earliest_allowed = date.today() - timedelta(days=3 * 365)
+    # typos like a birth year instead of a birth date) can't be more than 10 years
+    # ago - comfortably past the oldest AGE_GUIDANCE stage ("5+ years") so a real
+    # toddler/preschooler's birth date is never rejected by this sanity check.
+    earliest_allowed = date.today() - timedelta(days=10 * 365)
     latest_allowed = date.today()
 
     if request.method == "POST" and request.form.get("form_name") == "change_password":
@@ -1494,6 +1634,50 @@ def settings_view():
             conn.close()
             password_saved = True
 
+    elif request.method == "POST" and request.form.get("form_name") == "add_household_login":
+        new_email = (request.form.get("new_email") or "").strip().lower()
+        new_name = (request.form.get("new_name") or "").strip()
+        new_password = request.form.get("new_password") or ""
+        new_confirm_password = request.form.get("new_confirm_password") or ""
+
+        if not new_email or not new_password:
+            household_error = "Email and password are both required."
+        elif new_password != new_confirm_password:
+            household_error = "Those two passwords don't match."
+        elif len(new_password) < 8:
+            household_error = "Password needs to be at least 8 characters."
+        else:
+            conn = get_auth_db()
+            this_household_id = current_user()["household_id"]
+            member_count = conn.execute(
+                "SELECT COUNT(*) AS n FROM users WHERE household_id = ?", (this_household_id,)
+            ).fetchone()["n"]
+            existing = conn.execute("SELECT id FROM users WHERE email = ?", (new_email,)).fetchone()
+            if member_count >= MAX_HOUSEHOLD_MEMBERS:
+                conn.close()
+                household_error = "This household has reached its maximum number of logins."
+            elif existing:
+                conn.close()
+                household_error = "An account with that email already exists."
+            else:
+                user = current_user()
+                # Shares the CURRENT user's household_id rather than getting a fresh one of
+                # their own - that's what makes this a second login onto the SAME tracker
+                # data instead of a normal standalone /signup account.
+                conn.execute(
+                    "INSERT INTO users (email, name, password_hash, household_id, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (
+                        new_email,
+                        new_name or new_email.split("@")[0],
+                        generate_password_hash(new_password),
+                        user["household_id"],
+                        datetime.now().isoformat(),
+                    ),
+                )
+                conn.commit()
+                conn.close()
+                household_saved = True
+
     elif request.method == "POST" and request.form.get("form_name") == "delete_account":
         current_password = request.form.get("current_password") or ""
 
@@ -1502,18 +1686,28 @@ def settings_view():
             delete_error = "That's not your current password - nothing was deleted."
         else:
             user_id = user["id"]
-
-            # Remove this user's own tracker data (entries/journal/weight/settings), plus
-            # any pre-import safety-net snapshots for them (see the CSV import code above).
-            # The shared auth.db is handled separately below - deleting their row there is
-            # what actually removes the account and signs them out for good.
-            user_db_path = os.path.join(DATA_DIR, f"tracker_{user_id}.db")
-            if os.path.exists(user_db_path):
-                os.remove(user_db_path)
-            for backup_path in glob.glob(os.path.join("backups", f"tracker_{user_id}_pre_import_*.db")):
-                os.remove(backup_path)
+            household_id = user["household_id"]
 
             conn = get_auth_db()
+            other_household_logins = conn.execute(
+                "SELECT COUNT(*) AS n FROM users WHERE household_id = ? AND id != ?",
+                (household_id, user_id),
+            ).fetchone()["n"]
+
+            # Only wipe the shared tracker data (entries/journal/weight/settings) plus its
+            # pre-import safety-net snapshots if nobody else's login still shares this
+            # household - if a partner's account points at the same household_id, their
+            # data has to stay put even though this login is going away.
+            if other_household_logins == 0:
+                household_db_path = os.path.join(DATA_DIR, f"tracker_{household_id}.db")
+                if os.path.exists(household_db_path):
+                    os.remove(household_db_path)
+                for backup_path in glob.glob(os.path.join("backups", f"tracker_{household_id}_pre_import_*.db")):
+                    os.remove(backup_path)
+
+            # The shared auth.db row is handled here regardless - deleting THIS login is
+            # what actually removes the account and signs them out for good, whether or
+            # not their household's tracker data survived them.
             conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
             conn.commit()
             conn.close()
@@ -1535,7 +1729,7 @@ def settings_view():
             if parsed_birth_date > latest_allowed:
                 error = "Birth date can't be in the future."
             elif parsed_birth_date < earliest_allowed:
-                error = "That birth date is more than 3 years ago - please double check it."
+                error = "That birth date is more than 10 years ago - please double check it."
             else:
                 save_settings(baby_name, birth_date_str)
                 saved = True
@@ -1549,6 +1743,16 @@ def settings_view():
         baby_name_value = settings["baby_name"]
         birth_date_value = settings["birth_date"].isoformat()
 
+    # Who else (if anyone) shares this household's tracker data via their own login -
+    # shown so "add another login" visibly worked, not just taken on faith.
+    this_user = current_user()
+    conn = get_auth_db()
+    household_members = conn.execute(
+        "SELECT name, email FROM users WHERE household_id = ? ORDER BY id",
+        (this_user["household_id"],),
+    ).fetchall()
+    conn.close()
+
     return render_template(
         "settings.html",
         baby_name_value=baby_name_value,
@@ -1559,6 +1763,9 @@ def settings_view():
         error=error,
         password_saved=password_saved,
         password_error=password_error,
+        household_saved=household_saved,
+        household_error=household_error,
+        household_members=household_members,
         delete_error=delete_error,
         active="settings",
     )

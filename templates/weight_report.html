@@ -3,15 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weight Report - Baby {{ baby_name }}'s Steps</title>
+    <title>Weight Report - {{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
     <style>
         @media print {
             .no-print { display: none !important; }
             body { background: #fff; }
             .container { max-width: 100%; }
         }
-        .print-btn { display:block; width:100%; padding:12px; margin-bottom:16px; background:#4a90d9; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:1rem; cursor:pointer; }
+        .print-btn { display:block; width:100%; padding:12px; margin-bottom:16px; background:#3c98a4; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:1rem; cursor:pointer; }
         table.weight-report-history { width:100%; table-layout:fixed; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin-top: 16px; }
         table.weight-report-history th, table.weight-report-history td { padding: 6px 8px; border-bottom:1px solid #eee; text-align:left; font-size: 0.8rem; }
         table.weight-report-history th { background:#f0f2f5; font-size:0.7rem; text-transform:uppercase; color:#777; }
@@ -20,7 +28,7 @@
 <body>
     <div class="container">
         <div class="no-print">
-            <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+            <h1>👣 {{ app_title }}</h1>
             {% include "_nav.html" %}
             <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
         </div>

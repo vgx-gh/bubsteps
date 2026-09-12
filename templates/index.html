@@ -3,16 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Baby {{ baby_name }}'s Steps</title>
+    <title>{{ app_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#3c98a4">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+    </script>
     <style>
-        .entry-section-label { font-size: 1.1rem; font-weight: 700; color: #4a90d9; text-transform: uppercase; letter-spacing: 0.03em; margin: 20px 0 6px; }
+        .entry-section-label { font-size: 1.1rem; font-weight: 700; color: #3c98a4; text-transform: uppercase; letter-spacing: 0.03em; margin: 20px 0 6px; }
         .entry-box { border: 1px solid #dfe7ef; border-radius: 12px; padding: 4px; margin-bottom: 4px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>👶 Baby {{ baby_name }}'s Steps</h1>
+        <h1>👣 {{ app_title }}</h1>
         {% include "_nav.html" with context %}
 
         {% if last_fed %}
