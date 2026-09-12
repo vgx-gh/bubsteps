@@ -34,7 +34,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>👣 {{ app_title }}</h1>
+        <h1><a href="{{ url_for('home') }}">👣 {{ app_title }}</a></h1>
         {% include "_nav.html" %}
 
         <form method="GET" class="date-picker">

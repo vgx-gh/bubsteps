@@ -12,7 +12,7 @@
 // Every other request (every page, every form POST) just passes straight through to
 // the network, exactly as if this worker didn't exist.
 
-const CACHE_NAME = "bubsteps-shell-v1";
+const CACHE_NAME = "bubsteps-shell-v2";
 const SHELL_ASSETS = [
   "/static/style.css",
   "/static/icons/icon-192.png",
