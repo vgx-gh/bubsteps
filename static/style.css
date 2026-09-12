@@ -151,6 +151,52 @@ table.entries th {
     padding: 20px;
 }
 
+.quick-log-offset {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.quick-log-offset .offset-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #777;
+    margin-right: 2px;
+}
+
+.offset-btn {
+    margin-top: 0;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #fff;
+    color: #555;
+    border: 1px solid #ddd;
+    border-radius: 14px;
+    cursor: pointer;
+}
+
+.offset-btn.active {
+    background: #3c98a4;
+    color: #fff;
+    border-color: #3c98a4;
+}
+
+/* Daily Entry's version of the offset row - the Date/Time fields right above it already
+   show the actual time being logged, so this row skips the "Log time:" label and the
+   "Now" button (nothing to reset to - the fields already default to now) and uses a
+   shorter "-5m" style label so all four fit on one line without wrapping. */
+.offset-btn-compact {
+    padding: 5px 7px;
+    font-size: 0.72rem;
+}
+
+#daily-time-offset {
+    gap: 4px;
+}
+
 .quick-log-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -449,6 +495,59 @@ h2 {
     color: #3c98a4;
     font-weight: 600;
     font-size: 0.75rem;
+}
+
+.preset-list {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.preset-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+}
+
+.preset-row:last-child {
+    border-bottom: none;
+}
+
+.preset-row .preset-label {
+    flex: 1;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.preset-row .preset-meta {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.preset-row form {
+    margin: 0;
+}
+
+.preset-row .icon-btn {
+    background: #f0f2f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    color: #555;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 4px 9px;
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.preset-row .icon-btn.delete {
+    color: #d9534f;
 }
 
 .chart-card {

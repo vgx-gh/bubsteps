@@ -86,6 +86,119 @@
             your login password - none of your tracker data is touched.
         </p>
 
+        <h2 style="margin-top:32px;">Quick Log Buttons</h2>
+
+        <p style="font-size:0.85rem; color:#555;">
+            These are the one-tap buttons on the home page's Quick Log section. Add, reorder, or remove
+            them here - up to {{ max_quick_presets }}.
+        </p>
+
+        {% if quick_preset_error %}
+        <p style="color:#c0392b; font-weight:600;">⚠️ {{ quick_preset_error }}</p>
+        {% endif %}
+
+        {% if quick_presets %}
+        <ul class="preset-list">
+            {% for preset in quick_presets %}
+            <li class="preset-row">
+                <span class="preset-label">{{ preset.label }}</span>
+                <span class="preset-meta">
+                    {{ event_types[preset.type].label }}{% if event_types[preset.type].unit %} · {% if preset.value == preset.value|round(0)|int %}{{ preset.value|round(0)|int }}{% else %}{{ preset.value }}{% endif %} {{ event_types[preset.type].unit }}{% endif %}
+                </span>
+                <form method="POST">
+                    <input type="hidden" name="form_name" value="move_quick_preset">
+                    <input type="hidden" name="preset_id" value="{{ preset.id }}">
+                    <input type="hidden" name="direction" value="up">
+                    <button type="submit" class="icon-btn" {% if loop.first %}disabled{% endif %} title="Move up">▲</button>
+                </form>
+                <form method="POST">
+                    <input type="hidden" name="form_name" value="move_quick_preset">
+                    <input type="hidden" name="preset_id" value="{{ preset.id }}">
+                    <input type="hidden" name="direction" value="down">
+                    <button type="submit" class="icon-btn" {% if loop.last %}disabled{% endif %} title="Move down">▼</button>
+                </form>
+                <form method="POST">
+                    <input type="hidden" name="form_name" value="delete_quick_preset">
+                    <input type="hidden" name="preset_id" value="{{ preset.id }}">
+                    <button type="submit" class="icon-btn delete" title="Delete">✕</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty">No quick-log buttons yet.</p>
+        {% endif %}
+
+        {% if quick_presets|length < max_quick_presets %}
+        <form method="POST" class="log-form" id="add-preset-form">
+            <input type="hidden" name="form_name" value="add_quick_preset">
+
+            <label for="preset_type">Logs as</label>
+            <select id="preset_type" name="preset_type" onchange="updatePresetValueField()" required>
+                {% for key, meta in event_types.items() %}
+                <option value="{{ key }}">{{ meta.label }}</option>
+                {% endfor %}
+            </select>
+
+            <div id="preset-label-wrapper">
+                <label for="preset_label">Button label</label>
+                <input type="text" id="preset_label" name="preset_label" placeholder="e.g. Formula 90ml">
+            </div>
+            <p id="preset-label-note" style="font-size:0.8rem; color:#777; margin:4px 0 0; display:none;">
+                Poo and Pee entries don't carry an amount, so there's nothing for a custom label to actually
+                distinguish - this button is just named "Poo" or "Pee".
+            </p>
+
+            <div id="preset-value-wrapper">
+                <label for="preset_value" id="preset-value-label">Amount (ml)</label>
+                <input type="number" step="any" id="preset_value" name="preset_value" placeholder="e.g. 90">
+            </div>
+
+            <button type="submit">Add Button</button>
+        </form>
+
+        <script>
+            const presetUnits = {
+                {% for key, meta in event_types.items() %}
+                "{{ key }}": {{ meta.unit|tojson }},
+                {% endfor %}
+            };
+
+            function updatePresetValueField() {
+                const type = document.getElementById('preset_type').value;
+                const unit = presetUnits[type];
+                const wrapper = document.getElementById('preset-value-wrapper');
+                const label = document.getElementById('preset-value-label');
+                const input = document.getElementById('preset_value');
+
+                const labelWrapper = document.getElementById('preset-label-wrapper');
+                const labelNote = document.getElementById('preset-label-note');
+                const labelInput = document.getElementById('preset_label');
+
+                if (unit === null) {
+                    // Poo/Pee: no amount, and (see the note that replaces it) no custom label
+                    // either - both fields are pointless when every button of this type would
+                    // log the exact same thing regardless of what it's called.
+                    wrapper.style.display = 'none';
+                    input.removeAttribute('required');
+                    labelWrapper.style.display = 'none';
+                    labelInput.removeAttribute('required');
+                    labelNote.style.display = 'block';
+                } else {
+                    wrapper.style.display = 'block';
+                    label.textContent = unit === 'minutes' ? 'Duration (minutes)' : 'Amount (ml)';
+                    input.placeholder = unit === 'minutes' ? 'e.g. 20' : 'e.g. 90';
+                    input.setAttribute('required', 'required');
+                    labelWrapper.style.display = 'block';
+                    labelInput.setAttribute('required', 'required');
+                    labelNote.style.display = 'none';
+                }
+            }
+
+            updatePresetValueField();
+        </script>
+        {% endif %}
+
         <h2 style="margin-top:32px;">Household</h2>
 
         <p style="font-size:0.85rem; color:#555;">

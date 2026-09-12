@@ -30,15 +30,26 @@
         {% endif %}
 
         <h2>Quick Log</h2>
+        {% if quick_presets %}
+        <div class="quick-log-offset" id="quick-log-offset">
+            <span class="offset-label">Log time:</span>
+            {% for offset in quick_log_offsets %}
+            <button type="button" class="offset-btn{% if offset == 0 %} active{% endif %}" data-offset="{{ offset }}">{% if offset == 0 %}Now{% else %}{{ offset }}m ago{% endif %}</button>
+            {% endfor %}
+        </div>
         <div class="quick-log-grid">
             {% for preset in quick_presets %}
-            <form method="POST" action="{{ url_for('quick_log') }}">
+            <form method="POST" action="{{ url_for('quick_log') }}" class="quick-log-form">
                 <input type="hidden" name="type" value="{{ preset.type }}">
                 <input type="hidden" name="value" value="{{ preset.value }}">
+                <input type="hidden" name="offset_minutes" value="0" class="offset-input">
                 <button type="submit" class="quick-btn">{{ preset.label }}</button>
             </form>
             {% endfor %}
         </div>
+        {% else %}
+        <p class="empty">No quick-log buttons set up yet - add some on the <a href="{{ url_for('settings_view') }}">Settings</a> page.</p>
+        {% endif %}
 
         <div id="daily-entry-anchor" class="entry-section-label">Daily Entry</div>
         <div class="entry-box">
@@ -59,6 +70,12 @@
                 <div id="value-wrapper">
                     <label for="value" id="value-label">Amount (ml)</label>
                     <input type="number" step="any" id="value" name="value" placeholder="e.g. 80">
+                </div>
+
+                <div class="quick-log-offset" id="daily-time-offset">
+                    {% for offset in quick_log_offsets if offset != 0 %}
+                    <button type="button" class="offset-btn offset-btn-compact" data-offset="{{ offset }}">{{ offset }}m ago</button>
+                    {% endfor %}
                 </div>
 
                 <button type="submit">Save Entry</button>
@@ -145,6 +162,50 @@
         }
 
         updateValueField();
+
+        // "Log time" control above the Quick Log buttons - lets a quick-log button record
+        // a feed that already happened a few minutes ago instead of always "right now".
+        // The selected offset (in minutes) is copied into every quick-log form's hidden
+        // offset_minutes field, whichever button ends up being tapped.
+        const offsetBar = document.getElementById('quick-log-offset');
+        if (offsetBar) {
+            offsetBar.addEventListener('click', function (e) {
+                const btn = e.target.closest('.offset-btn');
+                if (!btn) return;
+                offsetBar.querySelectorAll('.offset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('.offset-input').forEach(input => {
+                    input.value = btn.dataset.offset;
+                });
+            });
+        }
+
+        // Same "Log time" control, but on the Daily Entry form - since that form's Date/Time
+        // fields are visible and editable already, a click here just fills them in directly
+        // (current time minus the chosen offset) rather than going through a hidden field.
+        const dailyOffsetBar = document.getElementById('daily-time-offset');
+        if (dailyOffsetBar) {
+            const pad = n => String(n).padStart(2, '0');
+            dailyOffsetBar.addEventListener('click', function (e) {
+                const btn = e.target.closest('.offset-btn');
+                if (!btn) return;
+                dailyOffsetBar.querySelectorAll('.offset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const offsetMinutes = parseInt(btn.dataset.offset, 10) || 0;
+                const target = new Date(Date.now() - offsetMinutes * 60000);
+                document.getElementById('entry_date').value =
+                    `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}`;
+                document.getElementById('entry_time').value = `${pad(target.getHours())}:${pad(target.getMinutes())}`;
+            });
+            // Manually editing either field by hand no longer matches whichever offset button
+            // is highlighted, so drop the highlight rather than leave a stale one showing.
+            document.getElementById('entry_date').addEventListener('input', () => {
+                dailyOffsetBar.querySelectorAll('.offset-btn').forEach(b => b.classList.remove('active'));
+            });
+            document.getElementById('entry_time').addEventListener('input', () => {
+                dailyOffsetBar.querySelectorAll('.offset-btn').forEach(b => b.classList.remove('active'));
+            });
+        }
     </script>
 </body>
 </html>

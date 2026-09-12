@@ -228,14 +228,26 @@ def format_tags(tag_list):
     """Turn a list of tags back into the comma-separated string stored in the database."""
     return ", ".join(tag_list) if tag_list else None
 
-# Quick-log presets shown as one-tap buttons on the home page
-QUICK_LOG_PRESETS = [
+# Default quick-log presets - only used to seed a brand new household's own
+# quick_presets table the first time it's created (see init_user_tables below).
+# After that, each household's presets are fully theirs to add/reorder/delete via
+# the Settings page - this list is never read from again once seeding has happened.
+DEFAULT_QUICK_LOG_PRESETS = [
     {"label": "Formula 90ml", "type": "formula", "value": 90},
     {"label": "Formula 120ml", "type": "formula", "value": 120},
     {"label": "Express 100ml", "type": "express", "value": 100},
     {"label": "Poo", "type": "poo", "value": 1},
     {"label": "Pee", "type": "pee", "value": 1},
 ]
+
+# Ceiling on how many quick-log buttons a household can have - keeps the home page's
+# quick-log grid usable rather than growing crowded. At 2 columns, 6 means 3 full rows.
+MAX_QUICK_PRESETS = 6
+
+# Offsets (in minutes) offered by the "Log time" control above the quick-log
+# buttons, for logging a feed that already happened a few minutes ago instead of
+# always logging it as happening right now.
+QUICK_LOG_OFFSETS = [0, 5, 10, 15, 30]
 
 
 def get_auth_db():
@@ -314,6 +326,14 @@ def save_settings(baby_name, birth_date_str):
 def get_birth_date():
     """Convenience accessor for the common case where only the date is needed."""
     return get_settings()["birth_date"]
+
+
+def get_quick_presets():
+    """This household's own one-tap Quick Log buttons, in display order."""
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM quick_presets ORDER BY sort_order, id").fetchall()
+    conn.close()
+    return rows
 
 
 def current_user():
@@ -419,6 +439,33 @@ def init_user_tables(conn):
         """
     )
     conn.commit()
+
+    # quick_presets holds this household's own one-tap Quick Log buttons (configurable
+    # on the Settings page). Created (and seeded from DEFAULT_QUICK_LOG_PRESETS) only the
+    # very first time this household's database is set up - checked via sqlite_master
+    # rather than "CREATE TABLE IF NOT EXISTS + seed if empty", so that a household who
+    # later deletes every preset doesn't get them silently reseeded on their next request.
+    existing_tables = [
+        row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+    ]
+    if "quick_presets" not in existing_tables:
+        conn.execute(
+            """
+            CREATE TABLE quick_presets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                label TEXT NOT NULL,
+                type TEXT NOT NULL,
+                value REAL,
+                sort_order INTEGER NOT NULL
+            )
+            """
+        )
+        for i, preset in enumerate(DEFAULT_QUICK_LOG_PRESETS):
+            conn.execute(
+                "INSERT INTO quick_presets (label, type, value, sort_order) VALUES (?, ?, ?, ?)",
+                (preset["label"], preset["type"], preset["value"], i),
+            )
+        conn.commit()
 
     # One-time migration: move any weight entries logged the old way (inside the
     # generic 'entries' table) into the new dedicated weight_entries table.
@@ -544,7 +591,8 @@ def home():
         event_types=EVENT_TYPES,
         today=today,
         now=now,
-        quick_presets=QUICK_LOG_PRESETS,
+        quick_presets=get_quick_presets(),
+        quick_log_offsets=QUICK_LOG_OFFSETS,
         last_fed=last_fed,
         journal_date_prefill=journal_date_prefill,
         scroll_to_journal=scroll_to_journal,
@@ -559,11 +607,21 @@ def home():
 @app.route("/quick-log", methods=["POST"])
 @login_required
 def quick_log():
-    """One-tap logging using a preset - always logs at the current date/time."""
+    """One-tap logging using a preset. Normally logs at the current date/time, but the
+    "Log time" control above the quick-log buttons lets it log a feed that already
+    happened a few minutes ago instead - offset_minutes is how long ago that was, applied
+    to a real datetime (not just the time-of-day string) so an offset that crosses
+    midnight still lands on the correct, earlier date."""
     etype = request.form.get("type")
     value = request.form.get("value")
-    entry_date = date.today().isoformat()
-    entry_time = datetime.now().strftime("%H:%M")
+
+    try:
+        offset_minutes = int(request.form.get("offset_minutes") or 0)
+    except (TypeError, ValueError):
+        offset_minutes = 0
+    logged_at = datetime.now() - timedelta(minutes=max(offset_minutes, 0))
+    entry_date = logged_at.date().isoformat()
+    entry_time = logged_at.strftime("%H:%M")
 
     try:
         value = float(value)
@@ -975,15 +1033,28 @@ def build_weight_chart_svg(points):
         f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="#3c98a4" />'
         for x, y in coords
     )
+
+    # Every reading always gets a dot on the line, but labeling every single one gets
+    # unreadable once there are more than a handful (dates and values overlapping into
+    # illegible mush) - so date/value text labels are thinned to roughly MAX_LABELS
+    # evenly-spaced points, always keeping the very first and very last reading labeled.
+    MAX_LABELS = 7
+    if n <= MAX_LABELS:
+        label_indices = set(range(n))
+    else:
+        stride = -(-(n - 1) // (MAX_LABELS - 1))  # ceiling division, no import needed
+        label_indices = set(range(0, n, stride))
+        label_indices.add(n - 1)
+
     labels = "".join(
         f'<text x="{x:.1f}" y="{height - pad_bottom + 18}" font-size="10" '
         f'text-anchor="middle" fill="#888">{p["date"][5:]}</text>'
-        for (x, y), p in zip(coords, points)
+        for i, ((x, y), p) in enumerate(zip(coords, points)) if i in label_indices
     )
     value_labels = "".join(
         f'<text x="{x:.1f}" y="{y - 10:.1f}" font-size="11" font-weight="600" '
         f'text-anchor="middle" fill="#3c98a4">{p["value"]}</text>'
-        for (x, y), p in zip(coords, points)
+        for i, ((x, y), p) in enumerate(zip(coords, points)) if i in label_indices
     )
 
     grid_y1 = y_for(min_v + (max_v - min_v) * 0.5)
@@ -1604,6 +1675,7 @@ def settings_view():
     delete_error = None
     household_saved = False
     household_error = None
+    quick_preset_error = None
 
     # Bounds for the birth date: can't be in the future, and (to catch fat-finger
     # typos like a birth year instead of a birth date) can't be more than 10 years
@@ -1677,6 +1749,73 @@ def settings_view():
                 conn.commit()
                 conn.close()
                 household_saved = True
+
+    elif request.method == "POST" and request.form.get("form_name") == "add_quick_preset":
+        label = (request.form.get("preset_label") or "").strip()
+        etype = request.form.get("preset_type")
+        raw_value = request.form.get("preset_value")
+
+        value = None
+        if etype not in EVENT_TYPES:
+            quick_preset_error = "Pick a valid entry type."
+        elif etype in ("poo", "pee"):
+            # poo/pee have no meaningful numeric value - always logs 1, same as the Daily
+            # Entry form and quick_log() itself. And since every poo/pee button logs the
+            # exact same thing regardless of what it's called, custom labels aren't offered
+            # for these two (see settings.html) - the label is always just the event name,
+            # ignoring whatever preset_label the request happens to carry.
+            label = EVENT_TYPES[etype]["label"]
+            value = 1
+        elif not label:
+            quick_preset_error = "Give the button a label."
+        else:
+            try:
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                value = None
+            if value is None:
+                quick_preset_error = "Give this button an amount."
+
+        if quick_preset_error is None:
+            conn = get_db()
+            current_count = conn.execute("SELECT COUNT(*) AS n FROM quick_presets").fetchone()["n"]
+            if current_count >= MAX_QUICK_PRESETS:
+                conn.close()
+                quick_preset_error = f"You've reached the limit of {MAX_QUICK_PRESETS} quick-log buttons - delete one first."
+            else:
+                next_order = conn.execute("SELECT COALESCE(MAX(sort_order), -1) AS m FROM quick_presets").fetchone()["m"] + 1
+                conn.execute(
+                    "INSERT INTO quick_presets (label, type, value, sort_order) VALUES (?, ?, ?, ?)",
+                    (label, etype, value, next_order),
+                )
+                conn.commit()
+                conn.close()
+
+    elif request.method == "POST" and request.form.get("form_name") == "delete_quick_preset":
+        preset_id = request.form.get("preset_id")
+        conn = get_db()
+        conn.execute("DELETE FROM quick_presets WHERE id = ?", (preset_id,))
+        conn.commit()
+        conn.close()
+
+    elif request.method == "POST" and request.form.get("form_name") == "move_quick_preset":
+        # Swaps this preset's sort_order with its neighbor in the requested direction -
+        # simple up/down reordering rather than free drag-and-drop.
+        preset_id = request.form.get("preset_id")
+        direction = request.form.get("direction")
+        conn = get_db()
+        presets = conn.execute("SELECT * FROM quick_presets ORDER BY sort_order, id").fetchall()
+        ids = [p["id"] for p in presets]
+        if preset_id and int(preset_id) in ids:
+            idx = ids.index(int(preset_id))
+            swap_idx = idx - 1 if direction == "up" else idx + 1
+            if 0 <= swap_idx < len(presets):
+                this_order = presets[idx]["sort_order"]
+                other_order = presets[swap_idx]["sort_order"]
+                conn.execute("UPDATE quick_presets SET sort_order = ? WHERE id = ?", (other_order, presets[idx]["id"]))
+                conn.execute("UPDATE quick_presets SET sort_order = ? WHERE id = ?", (this_order, presets[swap_idx]["id"]))
+                conn.commit()
+        conn.close()
 
     elif request.method == "POST" and request.form.get("form_name") == "delete_account":
         current_password = request.form.get("current_password") or ""
@@ -1767,6 +1906,10 @@ def settings_view():
         household_error=household_error,
         household_members=household_members,
         delete_error=delete_error,
+        quick_presets=get_quick_presets(),
+        quick_preset_error=quick_preset_error,
+        event_types=EVENT_TYPES,
+        max_quick_presets=MAX_QUICK_PRESETS,
         active="settings",
     )
 
